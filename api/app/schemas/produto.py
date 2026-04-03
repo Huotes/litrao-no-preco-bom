@@ -1,10 +1,20 @@
 """Schemas Pydantic para serialização e validação."""
 
 from datetime import datetime
+from enum import Enum as PyEnum
+from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.produto import TipoBebida
+
+
+class OrdenarPor(str, PyEnum):
+    """Opções válidas de ordenação."""
+
+    MENOR_PRECO = "menor_preco"
+    MAIOR_PRECO = "maior_preco"
+    NOME = "nome"
 
 
 # --- Loja ---
@@ -70,9 +80,20 @@ class BuscaParams(BaseModel):
     preco_min: float | None = Field(None, ge=0)
     preco_max: float | None = Field(None, ge=0)
     em_promocao: bool | None = None
-    ordenar_por: str = "menor_preco"
+    ordenar_por: OrdenarPor = OrdenarPor.MENOR_PRECO
     pagina: int = Field(1, ge=1)
     por_pagina: int = Field(20, ge=1, le=100)
+
+    @model_validator(mode="after")
+    def validar_faixa_preco(self) -> Self:
+        if (
+            self.preco_min is not None
+            and self.preco_max is not None
+            and self.preco_min > self.preco_max
+        ):
+            msg = "preco_min não pode ser maior que preco_max"
+            raise ValueError(msg)
+        return self
 
 
 class PaginacaoOut(BaseModel):

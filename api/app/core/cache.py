@@ -30,12 +30,21 @@ async def cache_get(key: str) -> Any | None:
 async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
     """Grava valor no cache com TTL opcional."""
     r = await get_redis()
-    ttl = ttl or get_settings().cache_ttl
+    ttl = ttl if ttl is not None else get_settings().cache_ttl
     await r.set(key, json.dumps(value, default=str), ex=ttl)
 
 
 async def cache_delete_pattern(pattern: str) -> None:
     """Remove chaves que casam com o padrão."""
     r = await get_redis()
-    async for key in r.scan_iter(match=pattern):
-        await r.delete(key)
+    keys = [key async for key in r.scan_iter(match=pattern)]
+    if keys:
+        await r.delete(*keys)
+
+
+async def close_redis() -> None:
+    """Fecha a conexão Redis."""
+    global _pool  # noqa: PLW0603
+    if _pool is not None:
+        await _pool.aclose()
+        _pool = None

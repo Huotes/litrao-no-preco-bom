@@ -30,13 +30,13 @@ class ExemploSpider(BaseSpider):
                 continue
 
             nome = nome_el.text(strip=True)
-            valor = self._parse_preco(preco_el.text(strip=True))
+            valor = self.parse_preco(preco_el.text(strip=True))
             if not valor:
                 continue
 
             preco_original_el = card.css_first(".product-original-price")
             valor_original = (
-                self._parse_preco(preco_original_el.text(strip=True))
+                self.parse_preco(preco_original_el.text(strip=True))
                 if preco_original_el else None
             )
 
@@ -48,9 +48,9 @@ class ExemploSpider(BaseSpider):
 
             produtos.append(ProdutoScraped(
                 nome=nome,
-                tipo=self._inferir_tipo(nome),
-                marca=self._extrair_marca(nome),
-                volume_ml=self._extrair_volume(nome),
+                tipo=self.inferir_tipo(nome),
+                marca=self.extrair_marca(nome),
+                volume_ml=self.extrair_volume(nome),
                 valor=valor,
                 valor_original=valor_original,
                 url_oferta=url if url.startswith("http") else f"{self.url_base}{url}",
@@ -59,51 +59,3 @@ class ExemploSpider(BaseSpider):
             ))
 
         return produtos
-
-    @staticmethod
-    def _parse_preco(texto: str) -> float | None:
-        """Converte 'R$ 12,90' para 12.90."""
-        limpo = texto.replace("R$", "").replace(".", "").replace(",", ".").strip()
-        try:
-            return float(limpo)
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _inferir_tipo(nome: str) -> str:
-        """Infere tipo da bebida pelo nome."""
-        nome_lower = nome.lower()
-        mapa = {
-            "cerveja": ["cerveja", "lager", "pilsen", "ipa", "ale", "stout", "weiss"],
-            "vinho": ["vinho", "wine", "cabernet", "merlot", "chardonnay"],
-            "destilado": ["vodka", "whisky", "rum", "gin", "tequila", "cachaça"],
-        }
-        for tipo, keywords in mapa.items():
-            if any(kw in nome_lower for kw in keywords):
-                return tipo
-        return "outros"
-
-    @staticmethod
-    def _extrair_marca(nome: str) -> str | None:
-        """Extrai marca conhecida do nome."""
-        marcas = [
-            "Skol", "Brahma", "Antarctica", "Heineken", "Budweiser",
-            "Stella Artois", "Corona", "Absolut", "Smirnoff",
-        ]
-        nome_lower = nome.lower()
-        for marca in marcas:
-            if marca.lower() in nome_lower:
-                return marca
-        return None
-
-    @staticmethod
-    def _extrair_volume(nome: str) -> int | None:
-        """Extrai volume em ml do nome do produto."""
-        import re
-        match = re.search(r"(\d+)\s*ml", nome, re.IGNORECASE)
-        if match:
-            return int(match.group(1))
-        match = re.search(r"(\d+(?:[.,]\d+)?)\s*l(?:itro)?", nome, re.IGNORECASE)
-        if match:
-            return int(float(match.group(1).replace(",", ".")) * 1000)
-        return None

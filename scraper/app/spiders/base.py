@@ -1,6 +1,7 @@
 """Spider base com lógica comum de scraping."""
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -66,3 +67,50 @@ class BaseSpider(ABC):
         except Exception:
             logger.exception("Erro ao scrape de %s", self.nome_loja)
             return []
+
+    @staticmethod
+    def parse_preco(texto: str) -> float | None:
+        """Converte 'R$ 12,90' para 12.90."""
+        limpo = texto.replace("R$", "").replace(".", "").replace(",", ".").strip()
+        try:
+            return float(limpo)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def inferir_tipo(nome: str) -> str:
+        """Infere tipo da bebida pelo nome."""
+        nome_lower = nome.lower()
+        mapa = {
+            "cerveja": ["cerveja", "lager", "pilsen", "ipa", "ale", "stout", "weiss"],
+            "vinho": ["vinho", "wine", "cabernet", "merlot", "chardonnay"],
+            "destilado": ["vodka", "whisky", "rum", "gin", "tequila", "cachaça"],
+        }
+        for tipo, keywords in mapa.items():
+            if any(kw in nome_lower for kw in keywords):
+                return tipo
+        return "outros"
+
+    @staticmethod
+    def extrair_marca(nome: str) -> str | None:
+        """Extrai marca conhecida do nome."""
+        marcas = [
+            "Skol", "Brahma", "Antarctica", "Heineken", "Budweiser",
+            "Stella Artois", "Corona", "Absolut", "Smirnoff",
+        ]
+        nome_lower = nome.lower()
+        for marca in marcas:
+            if marca.lower() in nome_lower:
+                return marca
+        return None
+
+    @staticmethod
+    def extrair_volume(nome: str) -> int | None:
+        """Extrai volume em ml do nome do produto."""
+        match = re.search(r"(\d+)\s*ml", nome, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        match = re.search(r"(\d+(?:[.,]\d+)?)\s*l(?:itro)?", nome, re.IGNORECASE)
+        if match:
+            return int(float(match.group(1).replace(",", ".")) * 1000)
+        return None

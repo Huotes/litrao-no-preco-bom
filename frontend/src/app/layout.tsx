@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import "./globals.css";
@@ -14,9 +15,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
         <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-            <a href="/" className="text-xl font-bold text-amber-600">
-              🍺 Litrão no Preço Bom
-            </a>
+            <Link href="/" className="text-xl font-bold text-amber-600">
+              Litrão no Preço Bom
+            </Link>
           </div>
         </header>
 
