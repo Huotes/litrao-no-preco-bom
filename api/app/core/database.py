@@ -5,9 +5,10 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
 
+_settings = get_settings()
 engine = create_async_engine(
-    get_settings().database_url,
-    echo=get_settings().debug,
+    _settings.database_url,
+    echo=_settings.debug,
     pool_pre_ping=True,
 )
 
@@ -18,7 +19,7 @@ class Base(DeclarativeBase):
     """Base declarativa para todos os models."""
 
 
-async def get_db() -> AsyncSession:
+async def get_db():
     """Dependency injection de sessão do banco."""
     async with async_session() as session:
         yield session

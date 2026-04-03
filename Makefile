@@ -1,4 +1,4 @@
-.PHONY: up down build logs api-logs scraper-logs db-shell
+.PHONY: up down build logs api-logs scraper-logs db-shell redis-cli restart nuke
 
 up:
 	docker compose up -d
@@ -28,5 +28,7 @@ restart:
 	docker compose restart
 
 nuke:
+	@echo "ATENÇÃO: Isso vai DESTRUIR todos os dados (volumes)!"
+	@read -p "Continuar? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	docker compose down -v
 	docker compose up -d --build

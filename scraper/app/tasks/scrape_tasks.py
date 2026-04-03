@@ -8,14 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.celery_app import celery_app
+from app.models.produto import Loja, Preco, Produto
 from app.spiders.base import BaseSpider, ProdutoScraped
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://litrao_user:changeme@postgres:5432/litrao",
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL não configurada")
 
 engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -28,16 +28,6 @@ SPIDERS_REGISTRY: list[type[BaseSpider]] = [
 
 async def _persistir_produtos(produtos: list[ProdutoScraped], loja_nome: str) -> int:
     """Salva produtos no banco, criando ou atualizando preços."""
-    # Import local para evitar circular
-    from app.spiders.base import ProdutoScraped  # noqa: F811
-
-    # Lazy import dos models (evita import circular com Base)
-    import importlib
-    models = importlib.import_module("app.models.produto")
-    Produto = models.Produto
-    Preco = models.Preco
-    Loja = models.Loja
-
     async with async_session() as db:
         # Garantir que a loja existe
         result = await db.execute(select(Loja).where(Loja.nome == loja_nome))
@@ -82,23 +72,13 @@ async def _persistir_produtos(produtos: list[ProdutoScraped], loja_nome: str) ->
         return count
 
 
-def _run_async(coro):
-    """Executa coroutine em contexto síncrono do Celery."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
 @celery_app.task(bind=True, max_retries=3)
-def scrape_loja(self, spider_index: int):
+def scrape_loja(self, spider_name: str):
     """Executa scraping de uma loja específica."""
-    if spider_index >= len(SPIDERS_REGISTRY):
-        logger.error("Spider index %d fora do range", spider_index)
+    spider_cls = _get_spider_by_name(spider_name)
+    if spider_cls is None:
+        logger.error("Spider '%s' não encontrada no registry", spider_name)
         return
-
-    spider_cls = SPIDERS_REGISTRY[spider_index]
 
     async def _run():
         async with spider_cls() as spider:
@@ -108,17 +88,25 @@ def scrape_loja(self, spider_index: int):
             return await _persistir_produtos(produtos, spider.nome_loja)
 
     try:
-        count = _run_async(_run())
-        logger.info("Spider %s: %d preços salvos", spider_cls.nome_loja, count)
+        count = asyncio.run(_run())
+        logger.info("Spider %s: %d preços salvos", spider_name, count)
         return count
     except Exception as exc:
-        logger.exception("Erro no scrape de %s", spider_cls.nome_loja)
+        logger.exception("Erro no scrape de %s", spider_name)
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
 
 
 @celery_app.task
 def scrape_todas_lojas():
     """Dispara scraping de todas as lojas registradas."""
-    for i in range(len(SPIDERS_REGISTRY)):
-        scrape_loja.delay(i)
+    for spider_cls in SPIDERS_REGISTRY:
+        scrape_loja.delay(spider_cls.nome_loja)
     logger.info("Disparado scraping de %d lojas", len(SPIDERS_REGISTRY))
+
+
+def _get_spider_by_name(name: str) -> type[BaseSpider] | None:
+    """Busca spider pelo nome_loja."""
+    for spider_cls in SPIDERS_REGISTRY:
+        if spider_cls.nome_loja == name:
+            return spider_cls
+    return None

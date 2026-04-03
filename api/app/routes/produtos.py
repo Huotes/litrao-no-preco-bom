@@ -1,11 +1,11 @@
 """Rotas de produtos e busca."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.produto import TipoBebida
-from app.schemas.produto import BuscaParams, PaginacaoOut, ProdutoDetalhe, PrecoOut
+from app.schemas.produto import BuscaParams, PaginacaoOut, PrecoOut, ProdutoDetalhe
 from app.services.produto_service import buscar_produtos, obter_produto
 
 router = APIRouter(prefix="/produtos", tags=["produtos"])
@@ -13,25 +13,10 @@ router = APIRouter(prefix="/produtos", tags=["produtos"])
 
 @router.get("/", response_model=PaginacaoOut)
 async def listar_produtos(
-    q: str | None = None,
-    tipo: TipoBebida | None = None,
-    subtipo: str | None = None,
-    marca: str | None = None,
-    preco_min: float | None = Query(None, ge=0),
-    preco_max: float | None = Query(None, ge=0),
-    em_promocao: bool | None = None,
-    ordenar_por: str = "menor_preco",
-    pagina: int = Query(1, ge=1),
-    por_pagina: int = Query(20, ge=1, le=100),
+    params: BuscaParams = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     """Busca e filtra produtos com paginação."""
-    params = BuscaParams(
-        q=q, tipo=tipo, subtipo=subtipo, marca=marca,
-        preco_min=preco_min, preco_max=preco_max,
-        em_promocao=em_promocao, ordenar_por=ordenar_por,
-        pagina=pagina, por_pagina=por_pagina,
-    )
     return await buscar_produtos(db, params)
 
 
@@ -55,7 +40,7 @@ async def detalhe_produto(
         subtipo=produto.subtipo,
         marca=produto.marca,
         volume_ml=produto.volume_ml,
-        teor_alcoolico=produto.teor_alcoolico,
+        teor_alcoolico=float(produto.teor_alcoolico) if produto.teor_alcoolico else None,
         imagem_url=produto.imagem_url,
         descricao=produto.descricao,
         menor_preco=float(menor.valor) if menor else None,

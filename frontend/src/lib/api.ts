@@ -12,18 +12,20 @@ class ApiError extends Error {
   }
 }
 
-async function fetcher<T>(path: string, params?: Record<string, string>): Promise<T> {
-  const url = new URL(`${API_BASE}${path}`, window.location.origin);
+async function fetcher<T>(path: string, params?: Record<string, string>, signal?: AbortSignal): Promise<T> {
+  const url = `${API_BASE}${path}`;
+  const searchParams = new URLSearchParams();
 
   if (params) {
-    Object.entries(params).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== "") {
-        url.searchParams.set(key, value);
+        searchParams.set(key, value);
       }
-    });
+    }
   }
 
-  const response = await fetch(url.toString());
+  const fullUrl = searchParams.toString() ? `${url}?${searchParams}` : url;
+  const response = await fetch(fullUrl, { signal });
 
   if (!response.ok) {
     throw new ApiError(response.status, `Erro ${response.status}`);
@@ -35,17 +37,17 @@ async function fetcher<T>(path: string, params?: Record<string, string>): Promis
 function toStringParams(params: BuscaParams): Record<string, string> {
   const result: Record<string, string> = {};
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== false) {
       result[key] = String(value);
     }
-  });
+  }
 
   return result;
 }
 
-export async function buscarProdutos(params: BuscaParams): Promise<PaginacaoResponse> {
-  return fetcher<PaginacaoResponse>("/produtos/", toStringParams(params));
+export async function buscarProdutos(params: BuscaParams, signal?: AbortSignal): Promise<PaginacaoResponse> {
+  return fetcher<PaginacaoResponse>("/produtos/", toStringParams(params), signal);
 }
 
 export async function obterProduto(id: number): Promise<ProdutoDetalhe> {

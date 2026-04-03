@@ -1,3 +1,5 @@
+import type { TipoBebida } from "@/types/produto";
+
 export function formatarPreco(valor: number): string {
   return valor.toLocaleString("pt-BR", {
     style: "currency",
@@ -6,11 +8,11 @@ export function formatarPreco(valor: number): string {
 }
 
 export function formatarVolume(ml: number | null): string {
-  if (!ml) return "";
+  if (ml == null) return "";
   return ml >= 1000 ? `${(ml / 1000).toFixed(1)}L` : `${ml}ml`;
 }
 
-export const TIPO_LABELS: Record<string, string> = {
+export const TIPO_LABELS: Record<TipoBebida, string> = {
   cerveja: "Cerveja",
   vinho: "Vinho",
   destilado: "Destilado",

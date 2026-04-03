@@ -1,6 +1,7 @@
 """Models do domínio: Produto, Loja e Preço."""
 
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum as PyEnum
 
 from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, func
@@ -46,7 +47,7 @@ class Produto(Base):
     subtipo: Mapped[str | None] = mapped_column(String(100))
     marca: Mapped[str | None] = mapped_column(String(200), index=True)
     volume_ml: Mapped[int | None] = mapped_column()
-    teor_alcoolico: Mapped[float | None] = mapped_column(Numeric(4, 1))
+    teor_alcoolico: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))
     imagem_url: Mapped[str | None] = mapped_column(String(500))
     descricao: Mapped[str | None] = mapped_column(Text)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -66,8 +67,8 @@ class Preco(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False)
     loja_id: Mapped[int] = mapped_column(ForeignKey("lojas.id"), nullable=False)
-    valor: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    valor_original: Mapped[float | None] = mapped_column(Numeric(10, 2))
+    valor: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    valor_original: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     url_oferta: Mapped[str] = mapped_column(String(1000), nullable=False)
     em_promocao: Mapped[bool] = mapped_column(default=False)
     coletado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
