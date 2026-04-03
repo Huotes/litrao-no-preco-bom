@@ -37,7 +37,8 @@ class ExemploSpider(BaseSpider):
             preco_original_el = card.css_first(".product-original-price")
             valor_original = (
                 self.parse_preco(preco_original_el.text(strip=True))
-                if preco_original_el else None
+                if preco_original_el
+                else None
             )
 
             link_el = card.css_first("a[href]")
@@ -46,16 +47,20 @@ class ExemploSpider(BaseSpider):
             img_el = card.css_first("img[src]")
             img_url = img_el.attributes.get("src") if img_el else None
 
-            produtos.append(ProdutoScraped(
-                nome=nome,
-                tipo=self.inferir_tipo(nome),
-                marca=self.extrair_marca(nome),
-                volume_ml=self.extrair_volume(nome),
-                valor=valor,
-                valor_original=valor_original,
-                url_oferta=url if url.startswith("http") else f"{self.url_base}{url}",
-                imagem_url=img_url,
-                em_promocao=valor_original is not None and valor_original > valor,
-            ))
+            produtos.append(
+                ProdutoScraped(
+                    nome=nome,
+                    tipo=self.inferir_tipo(nome),
+                    marca=self.extrair_marca(nome),
+                    volume_ml=self.extrair_volume(nome),
+                    valor=valor,
+                    valor_original=valor_original,
+                    url_oferta=(
+                        url if url.startswith("http") else f"{self.url_base}{url}"
+                    ),
+                    imagem_url=img_url,
+                    em_promocao=valor_original is not None and valor_original > valor,
+                )
+            )
 
         return produtos
