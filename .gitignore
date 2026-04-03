@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+
+# Build
+.next/
+dist/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+!api/.env.example
+!frontend/.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker
+pgdata/
+
+# OS
+.DS_Store
+Thumbs.db
