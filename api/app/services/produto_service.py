@@ -3,9 +3,9 @@
 import hashlib
 import math
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, contains_eager
 
 from app.core.cache import cache_get, cache_set
 from app.models.produto import Preco, Produto
@@ -66,15 +66,24 @@ async def buscar_produtos(db: AsyncSession, params: BuscaParams) -> PaginacaoOut
     count_q = _aplicar_filtros(count_q, params)
     total = (await db.execute(count_q)).scalar_one()
 
-    # Busca paginada
+    # Busca paginada — IDs primeiro para evitar conflito com joinedload
     offset = (params.pagina - 1) * params.por_pagina
+
+    ids_q = select(Produto.id).distinct()
+    ids_q = _aplicar_filtros(ids_q, params)
+    ids_q = ids_q.offset(offset).limit(params.por_pagina)
+    ids_result = await db.execute(ids_q)
+    produto_ids = [row[0] for row in ids_result.all()]
+
+    if not produto_ids:
+        return PaginacaoOut(items=[], total=total, pagina=params.pagina, paginas=0)
+
+    # Buscar produtos completos com preços
     query = (
         select(Produto)
+        .where(Produto.id.in_(produto_ids))
         .options(joinedload(Produto.precos).joinedload(Preco.loja))
     )
-    query = _aplicar_filtros(query, params)
-    query = query.offset(offset).limit(params.por_pagina)
-
     result = await db.execute(query)
     produtos = result.unique().scalars().all()
 
@@ -88,6 +97,14 @@ async def buscar_produtos(db: AsyncSession, params: BuscaParams) -> PaginacaoOut
                 "loja_menor_preco": menor.loja.nome if menor else None,
             },
         ))
+
+    # Ordenação client-side (já temos todos os items da página)
+    if params.ordenar_por == "menor_preco":
+        items.sort(key=lambda x: x.menor_preco or 999999)
+    elif params.ordenar_por == "maior_preco":
+        items.sort(key=lambda x: x.menor_preco or 0, reverse=True)
+    elif params.ordenar_por == "nome":
+        items.sort(key=lambda x: x.nome.lower())
 
     paginas = math.ceil(total / params.por_pagina) if total else 0
     resultado = PaginacaoOut(items=items, total=total, pagina=params.pagina, paginas=paginas)

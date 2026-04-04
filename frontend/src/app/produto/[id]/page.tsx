@@ -4,45 +4,49 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-import { formatarPreco, formatarVolume, TIPO_ICONS, TIPO_LABELS } from "@/lib/format";
+import { obterProduto } from "@/lib/api";
+import { formatarPreco, formatarVolume, TIPO_ICONS } from "@/lib/format";
 import { TipoBadge } from "@/components/TipoBadge";
-import { MOCK_PRODUTOS } from "@/lib/mock-data";
-import type { Produto } from "@/types/produto";
-
-// Mock prices for detail view
-function mockPrecos(produto: Produto) {
-  const lojas = ["Pão de Açúcar", "Carrefour", "Extra", "Assaí", "Atacadão"];
-  const base = produto.menor_preco ?? 10;
-  return lojas.slice(0, 3 + Math.floor(Math.random() * 2)).map((loja, i) => ({
-    id: i + 1,
-    valor: +(base + i * (base * 0.08)).toFixed(2),
-    valor_original: i === 0 ? +(base * 1.3).toFixed(2) : null,
-    url_oferta: "#",
-    em_promocao: i === 0,
-    coletado_em: new Date().toISOString(),
-    loja: { id: i + 1, nome: loja, url_base: "", logo_url: null },
-  }));
-}
+import type { ProdutoDetalhe } from "@/types/produto";
 
 export default function ProdutoPage() {
   const { id } = useParams<{ id: string }>();
+  const [produto, setProduto] = useState<ProdutoDetalhe | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isFav, setIsFav] = useState(false);
 
-  const numId = Number(id);
-  const produto = MOCK_PRODUTOS.find((p) => p.id === numId);
+  useEffect(() => {
+    if (!id) return;
+    const numId = Number(id);
+    if (Number.isNaN(numId) || numId <= 0) {
+      setError("ID inválido");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    obterProduto(numId)
+      .then(setProduto)
+      .catch((err) => setError(err instanceof Error ? err.message : "Erro"))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-  if (!produto) {
+  if (loading) {
+    return <div className="py-16 text-center text-gray-400">Carregando...</div>;
+  }
+
+  if (error || !produto) {
     return (
       <div className="py-16 text-center">
         <p className="text-4xl mb-3">😕</p>
-        <p className="text-gray-500">Produto não encontrado</p>
+        <p className="text-gray-500">{error ?? "Produto não encontrado"}</p>
         <Link href="/" className="btn-primary inline-block mt-4 text-sm">Voltar ao início</Link>
       </div>
     );
   }
 
-  const precos = mockPrecos(produto);
   const icon = TIPO_ICONS[produto.tipo] ?? "🍾";
+  const precos = produto.precos ?? [];
 
   return (
     <div className="space-y-5 pt-4">
@@ -85,34 +89,38 @@ export default function ProdutoPage() {
       {/* Prices */}
       <section>
         <h2 className="section-title mb-3">Preços encontrados ({precos.length})</h2>
-        <div className="space-y-2">
-          {precos.map((preco, idx) => (
-            <div
-              key={preco.id}
-              className={`card p-4 flex items-center justify-between ${idx === 0 ? "ring-2 ring-brand-teal/20" : ""}`}
-            >
-              <div>
-                <span className="text-sm font-medium text-gray-800">{preco.loja.nome}</span>
-                {preco.em_promocao && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-green/10 text-brand-green-dark uppercase">
-                    Promoção
+        {precos.length === 0 ? (
+          <p className="text-sm text-gray-400">Nenhum preço disponível no momento.</p>
+        ) : (
+          <div className="space-y-2">
+            {precos.map((preco, idx) => (
+              <div
+                key={preco.id}
+                className={`card p-4 flex items-center justify-between ${idx === 0 ? "ring-2 ring-brand-teal/20" : ""}`}
+              >
+                <div>
+                  <span className="text-sm font-medium text-gray-800">{preco.loja.nome}</span>
+                  {preco.em_promocao && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-green/10 text-brand-green-dark uppercase">
+                      Promoção
+                    </span>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    Atualizado em {new Date(preco.coletado_em).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className={`text-lg font-bold ${idx === 0 ? "text-brand-teal" : "text-gray-700"}`}>
+                    {formatarPreco(preco.valor)}
                   </span>
-                )}
-                <p className="text-[10px] text-gray-400 mt-0.5">
-                  Atualizado em {new Date(preco.coletado_em).toLocaleDateString("pt-BR")}
-                </p>
+                  {preco.valor_original && preco.valor_original > preco.valor && (
+                    <p className="text-xs text-gray-400 line-through">{formatarPreco(preco.valor_original)}</p>
+                  )}
+                </div>
               </div>
-              <div className="text-right">
-                <span className={`text-lg font-bold ${idx === 0 ? "text-brand-teal" : "text-gray-700"}`}>
-                  {formatarPreco(preco.valor)}
-                </span>
-                {preco.valor_original && preco.valor_original > preco.valor && (
-                  <p className="text-xs text-gray-400 line-through">{formatarPreco(preco.valor_original)}</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -1,19 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { ProductCard } from "@/components/ProductCard";
 import { RegionSelector } from "@/components/RegionSelector";
 import { SectionHeader } from "@/components/SectionHeader";
-import { MOCK_PRODUTOS, PROMOCOES, MAIS_PEDIDOS } from "@/lib/mock-data";
+import { buscarProdutos } from "@/lib/api";
 import { TIPO_LABELS, TIPO_ICONS } from "@/lib/format";
-import type { TipoBebida } from "@/types/produto";
+import type { BuscaParams, Produto, TipoBebida } from "@/types/produto";
 
 const CATEGORIAS = Object.entries(TIPO_LABELS).slice(0, 5) as [TipoBebida, string][];
 
 export default function HomePage() {
   const [recentSearches] = useState(["Heineken", "Vinho tinto", "Gin"]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [promos, setPromos] = useState<Produto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [all, promosRes] = await Promise.all([
+          buscarProdutos({ pagina: 1, por_pagina: 8, ordenar_por: "menor_preco" }),
+          buscarProdutos({ pagina: 1, por_pagina: 8, em_promocao: true }),
+        ]);
+        setProdutos(all.items);
+        setPromos(promosRes.items.length > 0 ? promosRes.items : all.items.slice(0, 4));
+      } catch {
+        // Se a API falhar, fica vazio
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   return (
     <div className="space-y-6 pt-4">
@@ -76,58 +97,58 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Promotions horizontal scroll */}
-      <section>
-        <SectionHeader title="Promoções" emoji="🔥" href="/busca?em_promocao=true" />
-        <div className="mt-3 flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-          {PROMOCOES.map((p) => (
-            <div key={p.id} className="min-w-[220px] max-w-[220px]">
-              <ProductCard produto={p} />
+      {loading ? (
+        <div className="py-8 text-center text-gray-400 text-sm">Carregando ofertas...</div>
+      ) : (
+        <>
+          {/* Promotions horizontal scroll */}
+          {promos.length > 0 && (
+            <section>
+              <SectionHeader title="Promoções" emoji="🔥" href="/busca?em_promocao=true" />
+              <div className="mt-3 flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                {promos.map((p) => (
+                  <div key={p.id} className="min-w-[220px] max-w-[220px]">
+                    <ProductCard produto={p} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Stats banner */}
+          <section className="gradient-hero rounded-2xl p-5 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium opacity-90">Preços monitorados</p>
+                <p className="text-3xl font-bold mt-1">60+</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium opacity-90">Lojas</p>
+                <p className="text-3xl font-bold mt-1">6</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium opacity-90">Economia média</p>
+                <p className="text-3xl font-bold mt-1">23%</p>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* Stats banner */}
-      <section className="gradient-hero rounded-2xl p-5 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium opacity-90">Preços monitorados</p>
-            <p className="text-3xl font-bold mt-1">{MOCK_PRODUTOS.length * 3}+</p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-medium opacity-90">Lojas</p>
-            <p className="text-3xl font-bold mt-1">6</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-medium opacity-90">Economia média</p>
-            <p className="text-3xl font-bold mt-1">23%</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Most ordered */}
-      <section>
-        <SectionHeader title="Mais pedidos" emoji="⭐" href="/busca?ordenar_por=mais_pedidos" />
-        <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2">
-          {MAIS_PEDIDOS.slice(0, 4).map((p) => (
-            <ProductCard key={p.id} produto={p} />
-          ))}
-        </div>
-      </section>
-
-      {/* All products preview */}
-      <section>
-        <SectionHeader title="Todos os produtos" emoji="🍾" href="/busca" />
-        <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2">
-          {MOCK_PRODUTOS.slice(0, 6).map((p) => (
-            <ProductCard key={p.id} produto={p} />
-          ))}
-        </div>
-        <Link href="/busca" className="btn-outline block text-center mt-4 text-sm">
-          Ver todos os {MOCK_PRODUTOS.length} produtos
-        </Link>
-      </section>
+          {/* All products */}
+          {produtos.length > 0 && (
+            <section>
+              <SectionHeader title="Melhores preços" emoji="⭐" href="/busca" />
+              <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2">
+                {produtos.map((p) => (
+                  <ProductCard key={p.id} produto={p} />
+                ))}
+              </div>
+              <Link href="/busca" className="btn-outline block text-center mt-4 text-sm">
+                Ver todos os produtos
+              </Link>
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }

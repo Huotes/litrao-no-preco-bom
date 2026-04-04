@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { ProductCard } from "@/components/ProductCard";
 import { SearchFilters } from "@/components/SearchFilters";
 import { PriceSlider } from "@/components/PriceSlider";
-import { MOCK_PRODUTOS } from "@/lib/mock-data";
+import { useBusca } from "@/hooks/useBusca";
 import type { BuscaParams, TipoBebida } from "@/types/produto";
 
 export default function BuscaPage() {
@@ -19,6 +19,7 @@ export default function BuscaPage() {
 
 function BuscaContent() {
   const searchParams = useSearchParams();
+  const { data, loading, error, buscar } = useBusca();
 
   const [params, setParams] = useState<BuscaParams>({
     q: searchParams.get("q") ?? undefined,
@@ -31,30 +32,16 @@ function BuscaContent() {
 
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 200]);
 
-  // Client-side filtering on mock data
-  const filtered = useMemo(() => {
-    let items = [...MOCK_PRODUTOS];
+  useEffect(() => {
+    const fullParams: BuscaParams = {
+      ...params,
+      preco_min: priceRange[0] > 0 ? priceRange[0] : undefined,
+      preco_max: priceRange[1] < 200 ? priceRange[1] : undefined,
+    };
+    buscar(fullParams);
+  }, [params, priceRange, buscar]);
 
-    if (params.q) {
-      const q = params.q.toLowerCase();
-      items = items.filter(
-        (p) => p.nome.toLowerCase().includes(q) || p.marca?.toLowerCase().includes(q)
-      );
-    }
-    if (params.tipo) {
-      items = items.filter((p) => p.tipo === params.tipo);
-    }
-    if (priceRange[0] > 0 || priceRange[1] < 200) {
-      items = items.filter(
-        (p) => p.menor_preco && p.menor_preco >= priceRange[0] && p.menor_preco <= priceRange[1]
-      );
-    }
-
-    // Sort
-    items.sort((a, b) => (a.menor_preco ?? 999) - (b.menor_preco ?? 999));
-
-    return items;
-  }, [params.q, params.tipo, priceRange]);
+  const items = data?.items ?? [];
 
   return (
     <div className="space-y-5 pt-4">
@@ -68,10 +55,10 @@ function BuscaContent() {
         <PriceSlider value={priceRange} onChange={setPriceRange} />
       </div>
 
-      {/* Results */}
+      {/* Results header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          {filtered.length} resultado{filtered.length !== 1 ? "s" : ""}
+          {loading ? "Buscando..." : `${data?.total ?? 0} resultado${(data?.total ?? 0) !== 1 ? "s" : ""}`}
         </p>
         <select
           value={params.ordenar_por}
@@ -84,13 +71,41 @@ function BuscaContent() {
         </select>
       </div>
 
-      {filtered.length > 0 ? (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-          {filtered.map((p) => (
-            <ProductCard key={p.id} produto={p} />
-          ))}
-        </div>
-      ) : (
+      {error && (
+        <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</div>
+      )}
+
+      {items.length > 0 ? (
+        <>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            {items.map((p) => (
+              <ProductCard key={p.id} produto={p} />
+            ))}
+          </div>
+
+          {data && data.paginas > 1 && (
+            <div className="flex justify-center gap-2 pt-2">
+              <button
+                disabled={params.pagina === 1}
+                onClick={() => setParams((p) => ({ ...p, pagina: (p.pagina ?? 1) - 1 }))}
+                className="btn-outline text-xs px-4 py-2 disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="px-3 py-2 text-xs text-gray-500">
+                {data.pagina} / {data.paginas}
+              </span>
+              <button
+                disabled={data.pagina >= data.paginas}
+                onClick={() => setParams((p) => ({ ...p, pagina: (p.pagina ?? 1) + 1 }))}
+                className="btn-outline text-xs px-4 py-2 disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
+          )}
+        </>
+      ) : !loading ? (
         <div className="py-16 text-center">
           <p className="text-4xl mb-3">🔍</p>
           <p className="text-gray-500 text-sm">Nenhum produto encontrado com esses filtros.</p>
@@ -101,7 +116,7 @@ function BuscaContent() {
             Limpar filtros
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
