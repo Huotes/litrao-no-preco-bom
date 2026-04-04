@@ -120,12 +120,14 @@ export default function ProdutoPage() {
         )}
       </div>
 
-      {/* Prices list — estilo Google Shopping */}
+      {/* Prices list — preços reais coletados */}
       <section>
-        <h2 className="section-title mb-3">Preços encontrados ({precos.length})</h2>
-        {precos.length === 0 ? (
-          <p className="text-sm text-gray-400">Nenhum preço disponível no momento.</p>
-        ) : (
+        <h2 className="section-title mb-3">
+          {precos.length > 0
+            ? `Preços coletados (${precos.length})`
+            : "Nenhum preço coletado ainda"}
+        </h2>
+        {precos.length > 0 && (
           <div className="space-y-2">
             {precos.map((preco, idx) => (
               <a
@@ -176,6 +178,39 @@ export default function ProdutoPage() {
           </div>
         )}
       </section>
+
+      {/* Links para buscar em outras lojas */}
+      {produto.links_busca && produto.links_busca.length > 0 && (
+        <section>
+          <h2 className="section-title mb-3">Comparar em outras lojas</h2>
+          <div className="space-y-2">
+            {produto.links_busca.map((link) => (
+              <a
+                key={link.loja_nome}
+                href={link.url_busca}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="card p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-2">
+                  <StoreIcon src={link.loja_icone} nome={link.loja_nome} size={20} />
+                  <span className="text-sm font-medium text-gray-800">
+                    {link.loja_nome}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-brand-teal">
+                  <span className="text-xs">Buscar</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

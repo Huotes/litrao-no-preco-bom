@@ -43,10 +43,17 @@ export interface Preco {
   loja: Loja;
 }
 
+export interface LinkBusca {
+  loja_nome: string;
+  loja_icone: string | null;
+  url_busca: string;
+}
+
 export interface ProdutoDetalhe extends Produto {
   descricao: string | null;
   palavras_chave: string | null;
   precos: Preco[];
+  links_busca: LinkBusca[];
 }
 
 export interface PaginacaoResponse {

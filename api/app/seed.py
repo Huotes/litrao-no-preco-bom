@@ -1,16 +1,14 @@
-"""Seed com preços reais de referência e busca via ML API para imagens.
+"""Seed: cria lojas e popula produtos reais via API pública do Mercado Livre.
 
-Preços baseados em pesquisa real (abril/2026).
-URLs de oferta apontam para buscas reais com termos curtos.
-Imagens buscadas automaticamente da API do Mercado Livre.
+Zero dados fictícios. Todos os preços, imagens e URLs são reais.
+A API do ML (api.mercadolibre.com) é pública e não requer autenticação.
 """
 
 import asyncio
 import logging
-import random
+import re
+import sys
 from decimal import Decimal
-from urllib.parse import quote_plus
-
 import httpx
 from sqlalchemy import select
 
@@ -18,6 +16,7 @@ from app.core.database import async_session
 from app.models.produto import Loja, Preco, Produto
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 
 # ---------------------------------------------------------------------------
@@ -29,316 +28,219 @@ def _logo(domain: str) -> str:
 
 
 LOJAS = [
-    {
-        "nome": "Mercado Livre",
-        "url_base": "https://www.mercadolivre.com.br",
-        "tipo_fonte": "marketplace",
-        "icone": _logo("mercadolivre.com.br"),
-        "busca_tpl": "https://lista.mercadolivre.com.br/{q}",
-        "slug_sep": "-",
-    },
-    {
-        "nome": "Shopee",
-        "url_base": "https://shopee.com.br",
-        "tipo_fonte": "marketplace",
-        "icone": _logo("shopee.com.br"),
-        "busca_tpl": "https://shopee.com.br/search?keyword={q}",
-    },
-    {
-        "nome": "Carrefour",
-        "url_base": "https://www.carrefour.com.br",
-        "tipo_fonte": "scraper",
-        "icone": _logo("carrefour.com.br"),
-        "busca_tpl": "https://www.carrefour.com.br/busca/{q}",
-        "slug_sep": "-",
-    },
-    {
-        "nome": "Pão de Açúcar",
-        "url_base": "https://www.paodeacucar.com",
-        "tipo_fonte": "scraper",
-        "icone": _logo("paodeacucar.com"),
-        "busca_tpl": "https://www.paodeacucar.com/busca?terms={q}",
-    },
-    {
-        "nome": "Amazon",
-        "url_base": "https://www.amazon.com.br",
-        "tipo_fonte": "marketplace",
-        "icone": _logo("amazon.com.br"),
-        "busca_tpl": "https://www.amazon.com.br/s?k={q}",
-    },
-    {
-        "nome": "Magazine Luiza",
-        "url_base": "https://www.magazineluiza.com.br",
-        "tipo_fonte": "marketplace",
-        "icone": _logo("magazineluiza.com.br"),
-        "busca_tpl": "https://www.magazineluiza.com.br/busca/{q}/",
-        "slug_sep": "-",
-    },
-    {
-        "nome": "Americanas",
-        "url_base": "https://www.americanas.com.br",
-        "tipo_fonte": "marketplace",
-        "icone": _logo("americanas.com.br"),
-        "busca_tpl": "https://www.americanas.com.br/busca/{q}",
-        "slug_sep": "-",
-    },
-]
-
-# ---------------------------------------------------------------------------
-# Produtos com PREÇOS REAIS unitários (pesquisa abril/2026)
-# busca_ml = termo curto para buscar imagem na API do ML
-# ---------------------------------------------------------------------------
-
-PRODUTOS = [
-    {
-        "nome": "Skol Pilsen Lata 350ml",
-        "tipo": "cerveja", "subtipo": "Pilsen", "marca": "Skol",
-        "volume_ml": 350, "teor": 4.7,
-        "preco_ref": 4.15, "variacao": 0.15,
-        "busca_ml": "cerveja skol lata 350ml",
-        "busca_curta": "skol lata 350ml",
-        "palavras_chave": "skol pilsen lata gelada barata",
-        "descricao": "Cerveja Skol Pilsen, a cerveja que desce redondo.",
-    },
-    {
-        "nome": "Brahma Duplo Malte 600ml",
-        "tipo": "cerveja", "subtipo": "Lager", "marca": "Brahma",
-        "volume_ml": 600, "teor": 4.7,
-        "preco_ref": 7.90, "variacao": 0.15,
-        "busca_ml": "cerveja brahma duplo malte 600ml",
-        "busca_curta": "brahma duplo malte",
-        "palavras_chave": "brahma duplo malte litrão garrafa",
-        "descricao": "Brahma Duplo Malte, sabor encorpado e marcante.",
-    },
-    {
-        "nome": "Heineken Long Neck 330ml",
-        "tipo": "cerveja", "subtipo": "Lager", "marca": "Heineken",
-        "volume_ml": 330, "teor": 5.0,
-        "preco_ref": 6.50, "variacao": 0.12,
-        "busca_ml": "cerveja heineken long neck 330ml",
-        "busca_curta": "heineken long neck",
-        "palavras_chave": "heineken long neck premium importada",
-    },
-    {
-        "nome": "Corona Extra 355ml",
-        "tipo": "cerveja", "subtipo": "Lager", "marca": "Corona",
-        "volume_ml": 355, "teor": 4.5,
-        "preco_ref": 5.65, "variacao": 0.15,
-        "busca_ml": "cerveja corona extra 355ml",
-        "busca_curta": "corona extra",
-        "palavras_chave": "corona extra limão mexicana",
-    },
-    {
-        "nome": "Budweiser Lata 473ml",
-        "tipo": "cerveja", "subtipo": "Lager", "marca": "Budweiser",
-        "volume_ml": 473, "teor": 5.0,
-        "preco_ref": 4.50, "variacao": 0.12,
-        "busca_ml": "cerveja budweiser lata 473ml",
-        "busca_curta": "budweiser lata",
-        "palavras_chave": "budweiser lata latão americana",
-    },
-    {
-        "nome": "Antarctica Original 600ml",
-        "tipo": "cerveja", "subtipo": "Pilsen", "marca": "Antarctica",
-        "volume_ml": 600, "teor": 5.0,
-        "preco_ref": 6.90, "variacao": 0.10,
-        "busca_ml": "cerveja antarctica original 600ml",
-        "busca_curta": "antarctica original",
-        "palavras_chave": "antarctica original litrão garrafa",
-    },
-    {
-        "nome": "Stella Artois 275ml",
-        "tipo": "cerveja", "subtipo": "Lager", "marca": "Stella Artois",
-        "volume_ml": 275, "teor": 5.0,
-        "preco_ref": 3.59, "variacao": 0.15,
-        "busca_ml": "cerveja stella artois 275ml",
-        "busca_curta": "stella artois",
-        "palavras_chave": "stella artois premium belga",
-    },
-    {
-        "nome": "IPA Lagunitas 355ml",
-        "tipo": "cerveja", "subtipo": "IPA", "marca": "Lagunitas",
-        "volume_ml": 355, "teor": 6.2,
-        "preco_ref": 12.90, "variacao": 0.10,
-        "busca_ml": "cerveja lagunitas ipa 355ml",
-        "busca_curta": "lagunitas ipa",
-        "palavras_chave": "lagunitas ipa craft lupulo",
-    },
-    {
-        "nome": "Colorado Appia 600ml",
-        "tipo": "cerveja", "subtipo": "Wheat Ale", "marca": "Colorado",
-        "volume_ml": 600, "teor": 5.5,
-        "preco_ref": 16.90, "variacao": 0.12, "artesanal": True,
-        "busca_ml": "cerveja colorado appia 600ml",
-        "busca_curta": "colorado appia",
-        "palavras_chave": "colorado appia trigo mel artesanal",
-        "descricao": "Cerveja de trigo com mel de laranjeira.",
-    },
-    {
-        "nome": "Vinho Casillero del Diablo Cabernet 750ml",
-        "tipo": "vinho", "subtipo": "Tinto", "marca": "Casillero del Diablo",
-        "volume_ml": 750, "teor": 13.5,
-        "preco_ref": 37.90, "variacao": 0.10,
-        "busca_ml": "vinho casillero del diablo cabernet 750ml",
-        "busca_curta": "casillero del diablo",
-        "palavras_chave": "casillero diablo cabernet chileno tinto",
-    },
-    {
-        "nome": "Vinho Santa Helena Reservado Merlot 750ml",
-        "tipo": "vinho", "subtipo": "Tinto", "marca": "Santa Helena",
-        "volume_ml": 750, "teor": 13.0,
-        "preco_ref": 24.90, "variacao": 0.12,
-        "busca_ml": "vinho santa helena reservado merlot 750ml",
-        "busca_curta": "santa helena merlot",
-        "palavras_chave": "santa helena reservado merlot chileno",
-    },
-    {
-        "nome": "Vinho Miolo Seleção Chardonnay 750ml",
-        "tipo": "vinho", "subtipo": "Branco", "marca": "Miolo",
-        "volume_ml": 750, "teor": 12.5,
-        "preco_ref": 32.90, "variacao": 0.10,
-        "busca_ml": "vinho miolo chardonnay 750ml",
-        "busca_curta": "miolo chardonnay",
-        "palavras_chave": "miolo chardonnay branco brasileiro",
-    },
-    {
-        "nome": "Espumante Chandon Brut 750ml",
-        "tipo": "vinho", "subtipo": "Espumante", "marca": "Chandon",
-        "volume_ml": 750, "teor": 12.0,
-        "preco_ref": 89.90, "variacao": 0.15,
-        "busca_ml": "espumante chandon brut 750ml",
-        "busca_curta": "chandon brut",
-        "palavras_chave": "chandon brut espumante festa",
-    },
-    {
-        "nome": "Absolut Vodka Original 750ml",
-        "tipo": "destilado", "subtipo": "Vodka", "marca": "Absolut",
-        "volume_ml": 750, "teor": 40.0,
-        "preco_ref": 89.97, "variacao": 0.10,
-        "busca_ml": "vodka absolut 750ml",
-        "busca_curta": "absolut vodka",
-        "palavras_chave": "absolut vodka sueca original",
-    },
-    {
-        "nome": "Jack Daniel's Tennessee 1L",
-        "tipo": "destilado", "subtipo": "Whisky", "marca": "Jack Daniel's",
-        "volume_ml": 1000, "teor": 40.0,
-        "preco_ref": 159.90, "variacao": 0.12,
-        "busca_ml": "whisky jack daniels 1 litro",
-        "busca_curta": "jack daniels",
-        "palavras_chave": "jack daniels whisky tennessee americano",
-    },
-    {
-        "nome": "Gin Tanqueray London Dry 750ml",
-        "tipo": "destilado", "subtipo": "Gin", "marca": "Tanqueray",
-        "volume_ml": 750, "teor": 43.1,
-        "preco_ref": 109.90, "variacao": 0.15,
-        "busca_ml": "gin tanqueray london dry 750ml",
-        "busca_curta": "tanqueray gin",
-        "palavras_chave": "tanqueray gin london dry gintonico",
-    },
-    {
-        "nome": "Cachaça 51 965ml",
-        "tipo": "destilado", "subtipo": "Cachaça", "marca": "51",
-        "volume_ml": 965, "teor": 40.0,
-        "preco_ref": 13.90, "variacao": 0.10,
-        "busca_ml": "cachaca 51 965ml",
-        "busca_curta": "cachaca 51",
-        "palavras_chave": "51 cachaça caipirinha brasileira",
-    },
-    {
-        "nome": "Tequila José Cuervo Ouro 750ml",
-        "tipo": "destilado", "subtipo": "Tequila", "marca": "José Cuervo",
-        "volume_ml": 750, "teor": 38.0,
-        "preco_ref": 89.90, "variacao": 0.12,
-        "busca_ml": "tequila jose cuervo ouro 750ml",
-        "busca_curta": "jose cuervo ouro",
-        "palavras_chave": "jose cuervo tequila ouro mexicana",
-    },
-    {
-        "nome": "Campari Bitter 998ml",
-        "tipo": "destilado", "subtipo": "Bitter", "marca": "Campari",
-        "volume_ml": 998, "teor": 25.0,
-        "preco_ref": 49.90, "variacao": 0.10,
-        "busca_ml": "campari bitter 998ml",
-        "busca_curta": "campari",
-        "palavras_chave": "campari bitter negroni drink",
-    },
-    {
-        "nome": "Smirnoff Ice Long Neck 275ml",
-        "tipo": "drink_pronto", "subtipo": "Ice", "marca": "Smirnoff",
-        "volume_ml": 275, "teor": 5.0,
-        "preco_ref": 7.50, "variacao": 0.15,
-        "busca_ml": "smirnoff ice 275ml",
-        "busca_curta": "smirnoff ice",
-        "palavras_chave": "smirnoff ice limão vodka pronto",
-    },
-    {
-        "nome": "Beats GT 313ml Lata",
-        "tipo": "drink_pronto", "subtipo": "Misto", "marca": "Beats",
-        "volume_ml": 313, "teor": 7.9,
-        "preco_ref": 4.49, "variacao": 0.15,
-        "busca_ml": "beats gt lata 313ml",
-        "busca_curta": "beats gt",
-        "palavras_chave": "beats gt gin tonica lata pronto",
-    },
+    {"nome": "Mercado Livre", "url_base": "https://www.mercadolivre.com.br",
+     "tipo_fonte": "marketplace", "icone": _logo("mercadolivre.com.br")},
+    {"nome": "Shopee", "url_base": "https://shopee.com.br",
+     "tipo_fonte": "marketplace", "icone": _logo("shopee.com.br")},
+    {"nome": "Carrefour", "url_base": "https://www.carrefour.com.br",
+     "tipo_fonte": "scraper", "icone": _logo("carrefour.com.br")},
+    {"nome": "Pão de Açúcar", "url_base": "https://www.paodeacucar.com",
+     "tipo_fonte": "scraper", "icone": _logo("paodeacucar.com")},
+    {"nome": "Amazon", "url_base": "https://www.amazon.com.br",
+     "tipo_fonte": "marketplace", "icone": _logo("amazon.com.br")},
+    {"nome": "Magazine Luiza", "url_base": "https://www.magazineluiza.com.br",
+     "tipo_fonte": "marketplace", "icone": _logo("magazineluiza.com.br")},
+    {"nome": "Americanas", "url_base": "https://www.americanas.com.br",
+     "tipo_fonte": "marketplace", "icone": _logo("americanas.com.br")},
 ]
 
 
 # ---------------------------------------------------------------------------
-# Buscar imagem real na API do Mercado Livre
+# Termos de busca para popular o catálogo via ML API
 # ---------------------------------------------------------------------------
 
-async def _buscar_imagem_ml(client: httpx.AsyncClient, termo: str) -> str | None:
-    """Busca imagem do produto na API pública do ML."""
-    try:
-        resp = await client.get(
-            "https://api.mercadolibre.com/sites/MLB/search",
-            params={"q": termo, "limit": "1"},
-            timeout=8,
-        )
-        if resp.status_code == 200:
-            results = resp.json().get("results", [])
-            if results:
-                thumb = results[0].get("thumbnail", "")
-                if thumb:
-                    # Troca thumbnail por imagem de qualidade alta
-                    return thumb.replace("-I.jpg", "-O.jpg")
-    except Exception:
-        pass
+TERMOS_BUSCA = [
+    "cerveja lata 350ml",
+    "cerveja long neck",
+    "cerveja artesanal 600ml",
+    "cerveja ipa lata",
+    "vinho tinto 750ml",
+    "vinho branco 750ml",
+    "espumante brut 750ml",
+    "vodka 750ml",
+    "whisky 1 litro",
+    "gin london dry 750ml",
+    "cachaça 1 litro",
+    "tequila 750ml",
+    "drink pronto ice lata",
+    "campari 998ml",
+]
+
+ML_API = "https://api.mercadolibre.com/sites/MLB/search"
+
+
+# ---------------------------------------------------------------------------
+# Helpers para classificar produtos da ML API
+# ---------------------------------------------------------------------------
+
+def _inferir_tipo(nome: str) -> str:
+    """Infere tipo da bebida pelo nome."""
+    n = nome.lower()
+    mapa = {
+        "cerveja": [
+            "cerveja", "lager", "pilsen", "ipa", "ale", "stout",
+            "weiss", "wheat", "porter", "bock", "amber", "beer",
+        ],
+        "vinho": [
+            "vinho", "wine", "cabernet", "merlot", "chardonnay",
+            "espumante", "prosecco", "rosé", "champagne",
+        ],
+        "destilado": [
+            "vodka", "whisky", "whiskey", "rum", "gin", "tequila",
+            "cachaça", "cachaca", "cognac", "brandy", "bitter",
+            "campari", "aperol", "licor",
+        ],
+        "drink_pronto": [
+            "ice", "beats", "smirnoff ice", "drink pronto",
+            "ready to drink", "rtd",
+        ],
+    }
+    for tipo, kws in mapa.items():
+        if any(kw in n for kw in kws):
+            return tipo
+    return "outros"
+
+
+def _inferir_subtipo(nome: str, tipo: str) -> str | None:
+    """Infere subtipo pelo nome."""
+    n = nome.lower()
+    subtipos = {
+        "cerveja": {
+            "IPA": ["ipa"], "Pilsen": ["pilsen", "pilsner"],
+            "Lager": ["lager"], "Stout": ["stout"],
+            "Wheat Ale": ["wheat", "weiss", "trigo"],
+        },
+        "vinho": {
+            "Tinto": ["tinto", "cabernet", "merlot", "malbec", "carmenere"],
+            "Branco": ["branco", "chardonnay", "sauvignon blanc"],
+            "Espumante": ["espumante", "prosecco", "brut", "champagne"],
+            "Rosé": ["rosé", "rose"],
+        },
+        "destilado": {
+            "Vodka": ["vodka"], "Whisky": ["whisky", "whiskey", "bourbon"],
+            "Gin": ["gin"], "Tequila": ["tequila"],
+            "Cachaça": ["cachaça", "cachaca"], "Rum": ["rum"],
+            "Bitter": ["bitter", "campari", "aperol"],
+        },
+    }
+    for sub, kws in subtipos.get(tipo, {}).items():
+        if any(kw in n for kw in kws):
+            return sub
     return None
 
 
-async def _buscar_imagens(produtos: list[dict]) -> dict[str, str]:
-    """Busca imagens de todos os produtos via ML API."""
-    imagens: dict[str, str] = {}
+def _extrair_marca(nome: str) -> str | None:
+    """Extrai marca conhecida do nome."""
+    marcas = [
+        "Skol", "Brahma", "Antarctica", "Heineken", "Budweiser",
+        "Stella Artois", "Corona", "Absolut", "Smirnoff", "Beats",
+        "Colorado", "Wäls", "Jack Daniel's", "Tanqueray", "Beefeater",
+        "Campari", "José Cuervo", "Chandon", "Miolo", "51",
+        "Santa Helena", "Casillero del Diablo", "Lagunitas", "Patagonia",
+        "Original", "Bohemia", "Amstel", "Petra", "Baden Baden",
+        "Eisenbahn", "Devassa", "Itaipava", "Kaiser", "Crystal",
+    ]
+    n = nome.lower()
+    for marca in marcas:
+        if marca.lower() in n:
+            return marca
+    return None
+
+
+def _extrair_volume(nome: str) -> int | None:
+    """Extrai volume em ml do nome."""
+    m = re.search(r"(\d+)\s*ml", nome, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+    m = re.search(r"(\d+(?:[.,]\d+)?)\s*l(?:itro)?s?\b", nome, re.IGNORECASE)
+    if m:
+        return int(float(m.group(1).replace(",", ".")) * 1000)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Busca real na API do Mercado Livre
+# ---------------------------------------------------------------------------
+
+async def _buscar_ml(client: httpx.AsyncClient, termo: str) -> list[dict]:
+    """Busca um termo na ML API e retorna items parseados."""
+    items = []
+    try:
+        resp = await client.get(
+            ML_API,
+            params={"q": termo, "limit": "20", "sort": "relevance"},
+            timeout=15,
+        )
+        logger.info(
+            "ML API [%s]: status=%d, url=%s",
+            termo, resp.status_code, str(resp.url),
+        )
+        if resp.status_code != 200:
+            logger.warning("ML API retornou %d para '%s'", resp.status_code, termo)
+            return []
+
+        data = resp.json()
+        for item in data.get("results", []):
+            nome = item.get("title", "")
+            preco = item.get("price")
+            if not nome or not preco or preco <= 0:
+                continue
+
+            tipo = _inferir_tipo(nome)
+            if tipo == "outros":
+                continue
+
+            thumbnail = item.get("thumbnail", "")
+            img = ""
+            if thumbnail:
+                img = thumbnail.replace("-I.jpg", "-O.jpg").replace(
+                    "-I.webp", "-O.webp"
+                )
+
+            original = item.get("original_price")
+            em_promo = bool(original and original > preco)
+
+            items.append({
+                "nome": nome,
+                "tipo": tipo,
+                "subtipo": _inferir_subtipo(nome, tipo),
+                "marca": _extrair_marca(nome),
+                "volume_ml": _extrair_volume(nome),
+                "valor": float(preco),
+                "valor_original": float(original) if original else None,
+                "imagem_url": img,
+                "permalink": item.get("permalink", ""),
+                "em_promocao": em_promo,
+            })
+    except httpx.ConnectError as exc:
+        logger.error("ML API ConnectError [%s]: %s", termo, exc)
+    except httpx.TimeoutException:
+        logger.error("ML API Timeout [%s]", termo)
+    except Exception as exc:
+        logger.error("ML API erro [%s]: %s", termo, exc)
+
+    return items
+
+
+async def _coletar_produtos_ml() -> list[dict]:
+    """Coleta produtos reais de todos os termos de busca."""
+    todos: list[dict] = []
+    vistos: set[str] = set()
+
     async with httpx.AsyncClient(
         headers={"User-Agent": "LitraoBot/1.0"},
         follow_redirects=True,
     ) as client:
-        for item in produtos:
-            termo = item.get("busca_ml", item["nome"])
-            img = await _buscar_imagem_ml(client, termo)
-            if img:
-                imagens[item["nome"]] = img
-                logger.info("Imagem encontrada: %s", item["nome"])
-            else:
-                logger.warning("Sem imagem para: %s", item["nome"])
-    return imagens
+        for termo in TERMOS_BUSCA:
+            items = await _buscar_ml(client, termo)
+            for item in items:
+                chave = item["nome"].lower().strip()
+                if chave not in vistos:
+                    vistos.add(chave)
+                    todos.append(item)
 
-
-# ---------------------------------------------------------------------------
-# URL de busca na loja (termos curtos que funcionam)
-# ---------------------------------------------------------------------------
-
-def _url_busca(loja_data: dict, busca_curta: str) -> str:
-    """Gera URL de busca real com termos curtos."""
-    tpl = loja_data.get("busca_tpl", f"{loja_data['url_base']}/busca?q={{q}}")
-    if loja_data.get("slug_sep"):
-        q = busca_curta.lower().replace(" ", loja_data["slug_sep"])
-    else:
-        q = quote_plus(busca_curta)
-    return tpl.format(q=q)
+    logger.info("Total de produtos unicos coletados do ML: %d", len(todos))
+    return todos
 
 
 # ---------------------------------------------------------------------------
@@ -346,21 +248,17 @@ def _url_busca(loja_data: dict, busca_curta: str) -> str:
 # ---------------------------------------------------------------------------
 
 async def seed() -> None:
-    """Popula banco com dados reais. Idempotente."""
+    """Popula banco com dados REAIS. Idempotente."""
     async with async_session() as db:
         result = await db.execute(select(Produto).limit(1))
         if result.scalar_one_or_none():
-            print("Banco já possui dados, pulando seed.")
+            print("Banco ja possui dados, pulando seed.", flush=True)
             return
 
-        # Buscar imagens reais via ML API
-        print("Buscando imagens via API do Mercado Livre...")
-        imagens = await _buscar_imagens(PRODUTOS)
-        print(f"Imagens encontradas: {len(imagens)}/{len(PRODUTOS)}")
+        # 1. Criar lojas
+        print("Criando lojas...", flush=True)
+        lojas_db: dict[str, Loja] = {}
 
-        # Criar lojas
-        lojas_db = []
-        lojas_data_map: dict[int, dict] = {}
         for loja_data in LOJAS:
             loja = Loja(
                 nome=loja_data["nome"],
@@ -369,63 +267,63 @@ async def seed() -> None:
                 icone=loja_data.get("icone"),
             )
             db.add(loja)
-            lojas_db.append(loja)
+            lojas_db[loja_data["nome"]] = loja
+
         await db.flush()
+        print(f"  {len(LOJAS)} lojas criadas.", flush=True)
 
-        for loja, loja_data in zip(lojas_db, LOJAS):
-            lojas_data_map[loja.id] = loja_data
+        # 2. Buscar produtos REAIS na API do ML
+        print("Buscando produtos reais na API do Mercado Livre...", flush=True)
+        produtos_ml = await _coletar_produtos_ml()
 
-        # Criar produtos e preços
-        for item in PRODUTOS:
+        if not produtos_ml:
+            print(
+                "AVISO: Nenhum produto coletado da ML API. "
+                "Verifique conectividade do container.",
+                flush=True,
+            )
+            await db.commit()
+            return
+
+        # 3. Salvar produtos com preço REAL (apenas ML)
+        print(f"Salvando {len(produtos_ml)} produtos...", flush=True)
+        loja_ml = lojas_db["Mercado Livre"]
+
+        for item in produtos_ml:
             produto = Produto(
                 nome=item["nome"],
                 tipo=item["tipo"],
                 subtipo=item.get("subtipo"),
                 marca=item.get("marca"),
                 volume_ml=item.get("volume_ml"),
-                teor_alcoolico=(
-                    Decimal(str(item["teor"])) if item.get("teor") else None
-                ),
-                descricao=item.get("descricao"),
-                imagem_url=imagens.get(item["nome"]),
-                artesanal=item.get("artesanal", False),
-                palavras_chave=item.get("palavras_chave"),
+                imagem_url=item.get("imagem_url"),
+                artesanal=False,
             )
             db.add(produto)
             await db.flush()
 
-            # Gerar preços com variação realista em torno do preço de referência
-            preco_ref = item["preco_ref"]
-            var = item.get("variacao", 0.10)
-            n_lojas = random.randint(3, min(6, len(lojas_db)))
-            lojas_sample = random.sample(lojas_db, k=n_lojas)
-
-            for i, loja in enumerate(lojas_sample):
-                # Preço com variação realista (±var%)
-                fator = 1.0 + random.uniform(-var, var)
-                valor = round(preco_ref * fator, 2)
-                em_promo = random.random() > 0.7
-                valor_orig = round(valor * 1.25, 2) if em_promo else None
-
-                loja_data = lojas_data_map[loja.id]
-                busca_curta = item.get("busca_curta", item["marca"])
-                url_busca = _url_busca(loja_data, busca_curta)
-
-                preco = Preco(
-                    produto_id=produto.id,
-                    loja_id=loja.id,
-                    valor=Decimal(str(valor)),
-                    valor_original=(
-                        Decimal(str(valor_orig)) if valor_orig else None
-                    ),
-                    url_oferta=url_busca,
-                    url_redirecionamento=url_busca,
-                    em_promocao=em_promo,
-                )
-                db.add(preco)
+            # Preço REAL do ML com permalink real
+            preco_ml = Preco(
+                produto_id=produto.id,
+                loja_id=loja_ml.id,
+                valor=Decimal(str(item["valor"])),
+                valor_original=(
+                    Decimal(str(item["valor_original"]))
+                    if item.get("valor_original")
+                    else None
+                ),
+                url_oferta=item["permalink"],
+                url_redirecionamento=item["permalink"],
+                em_promocao=item.get("em_promocao", False),
+            )
+            db.add(preco_ml)
 
         await db.commit()
-        print(f"Seed concluído: {len(PRODUTOS)} produtos, {len(LOJAS)} lojas.")
+        print(
+            f"Seed concluido: {len(produtos_ml)} produtos reais do ML, "
+            f"{len(LOJAS)} lojas.",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

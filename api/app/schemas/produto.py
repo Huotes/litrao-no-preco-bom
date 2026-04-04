@@ -60,12 +60,21 @@ class ProdutoOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LinkBuscaOut(BaseModel):
+    """Link para buscar o produto em outra loja."""
+
+    loja_nome: str
+    loja_icone: str | None = None
+    url_busca: str
+
+
 class ProdutoDetalhe(ProdutoOut):
     """Produto com lista de preços completa."""
 
     descricao: str | None = None
     palavras_chave: str | None = None
     precos: list["PrecoOut"] = []
+    links_busca: list[LinkBuscaOut] = []
 
 
 # --- Preço ---

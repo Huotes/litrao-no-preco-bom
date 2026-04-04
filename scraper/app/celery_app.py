@@ -4,6 +4,7 @@ import os
 
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import worker_ready
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
@@ -29,3 +30,9 @@ celery_app.conf.update(
         },
     },
 )
+
+
+@worker_ready.connect
+def trigger_initial_scrape(**kwargs):
+    """Dispara scraping inicial quando o worker está pronto."""
+    celery_app.send_task("app.tasks.scrape_tasks.scrape_todas_lojas")
