@@ -86,15 +86,23 @@ def _aplicar_filtros(query, params: BuscaParams):
 def _produto_to_out(produto: Produto) -> ProdutoOut:
     """Converte model para schema de saída. Single Responsibility."""
     menor = min(produto.precos, key=lambda x: x.valor, default=None)
-    return ProdutoOut.model_validate(
-        produto,
-        update={
-            "menor_preco": float(menor.valor) if menor else None,
-            "loja_menor_preco": menor.loja.nome if menor else None,
-            "url_oferta": menor.url_oferta if menor else None,
-            "url_redirecionamento": menor.url_redirecionamento if menor else None,
-            "loja_icone": menor.loja.icone if menor else None,
-        },
+    return ProdutoOut(
+        id=produto.id,
+        nome=produto.nome,
+        tipo=produto.tipo,
+        subtipo=produto.subtipo,
+        marca=produto.marca,
+        volume_ml=produto.volume_ml,
+        teor_alcoolico=(
+            float(produto.teor_alcoolico) if produto.teor_alcoolico else None
+        ),
+        imagem_url=produto.imagem_url,
+        artesanal=produto.artesanal,
+        menor_preco=float(menor.valor) if menor else None,
+        loja_menor_preco=menor.loja.nome if menor else None,
+        url_oferta=menor.url_oferta if menor else None,
+        url_redirecionamento=menor.url_redirecionamento if menor else None,
+        loja_icone=menor.loja.icone if menor else None,
     )
 
 
