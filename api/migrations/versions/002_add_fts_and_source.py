@@ -18,18 +18,26 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
 
+    # Wrapper IMMUTABLE para unaccent (necessário para GENERATED ALWAYS)
+    op.execute("""
+        CREATE OR REPLACE FUNCTION imm_unaccent(text)
+        RETURNS text AS $$
+            SELECT public.unaccent('public.unaccent', $1)
+        $$ LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT
+    """)
+
     # Novos campos em produtos
     op.add_column("produtos", sa.Column("artesanal", sa.Boolean(), server_default=sa.text("false")))
     op.add_column("produtos", sa.Column("palavras_chave", sa.Text(), nullable=True))
 
-    # Full Text Search — coluna gerada
+    # Full Text Search — coluna gerada com wrapper imutável
     op.execute("""
         ALTER TABLE produtos
         ADD COLUMN busca_vetor tsvector
         GENERATED ALWAYS AS (
-            setweight(to_tsvector('portuguese', unaccent(coalesce(nome, ''))), 'A') ||
-            setweight(to_tsvector('portuguese', unaccent(coalesce(marca, ''))), 'B') ||
-            setweight(to_tsvector('portuguese', unaccent(coalesce(subtipo, ''))), 'C')
+            setweight(to_tsvector('portuguese', imm_unaccent(coalesce(nome, ''))), 'A') ||
+            setweight(to_tsvector('portuguese', imm_unaccent(coalesce(marca, ''))), 'B') ||
+            setweight(to_tsvector('portuguese', imm_unaccent(coalesce(subtipo, ''))), 'C')
         ) STORED
     """)
     op.execute("CREATE INDEX ix_produtos_busca_gin ON produtos USING GIN (busca_vetor)")
@@ -54,3 +62,4 @@ def downgrade() -> None:
     op.execute("ALTER TABLE produtos DROP COLUMN IF EXISTS busca_vetor")
     op.drop_column("produtos", "palavras_chave")
     op.drop_column("produtos", "artesanal")
+    op.execute("DROP FUNCTION IF EXISTS imm_unaccent(text)")
