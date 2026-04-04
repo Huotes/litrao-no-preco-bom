@@ -8,6 +8,7 @@ import { obterProduto } from "@/lib/api";
 import { formatarPreco, formatarVolume } from "@/lib/format";
 import { TipoBadge } from "@/components/TipoBadge";
 import { ProductImage } from "@/components/ProductImage";
+import { StoreIcon } from "@/components/StoreIcon";
 import type { ProdutoDetalhe } from "@/types/produto";
 
 export default function ProdutoPage() {
@@ -39,8 +40,8 @@ export default function ProdutoPage() {
   if (error || !produto) {
     return (
       <div className="py-16 text-center">
-        <p className="text-4xl mb-3">😕</p>
-        <p className="text-gray-500">{error ?? "Produto não encontrado"}</p>
+        <p className="text-gray-500 text-lg mb-2">Produto não encontrado</p>
+        <p className="text-gray-400 text-sm">{error}</p>
         <Link href="/" className="btn-primary inline-block mt-4 text-sm">Voltar ao início</Link>
       </div>
     );
@@ -93,8 +94,8 @@ export default function ProdutoPage() {
             <p className="text-xs text-gray-400">melhor preço</p>
             <p className="text-3xl font-bold text-brand-teal">{formatarPreco(produto.menor_preco)}</p>
             {produto.loja_menor_preco && (
-              <p className="text-xs text-gray-400 mt-1 flex items-center justify-center gap-1">
-                {produto.loja_icone && <span>{produto.loja_icone}</span>}
+              <p className="text-xs text-gray-400 mt-1 flex items-center justify-center gap-1.5">
+                <StoreIcon src={produto.loja_icone} nome={produto.loja_menor_preco} size={16} />
                 {produto.loja_menor_preco}
               </p>
             )}
@@ -136,27 +137,25 @@ export default function ProdutoPage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    {preco.loja.icone && (
-                      <span className="text-lg">{preco.loja.icone}</span>
-                    )}
+                    <StoreIcon src={preco.loja.icone} nome={preco.loja.nome} size={20} />
                     <span className="text-sm font-medium text-gray-800">
                       {preco.loja.nome}
                     </span>
                     {preco.em_promocao && (
                       <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-green/10 text-brand-green-dark uppercase">
-                        Promoção
+                        Promo
                       </span>
                     )}
                     {idx === 0 && (
                       <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-teal/10 text-brand-teal uppercase">
-                        Menor preço
+                        Menor
                       </span>
                     )}
                   </div>
                   <p className="text-[10px] text-gray-400 mt-0.5 truncate">
                     {preco.url_oferta.replace(/^https?:\/\//, "").split("/")[0]}
                     {" · "}
-                    Atualizado em {new Date(preco.coletado_em).toLocaleDateString("pt-BR")}
+                    {new Date(preco.coletado_em).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0 ml-3">

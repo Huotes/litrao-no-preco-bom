@@ -1,6 +1,7 @@
 """Tasks Celery para orquestração de scraping.
 
 Princípios: DRY (persistência genérica), KISS (registry simples).
+Apenas spiders com APIs confirmadas estão registradas.
 """
 
 import asyncio
@@ -18,14 +19,8 @@ from sqlalchemy.ext.asyncio import (
 from app.celery_app import celery_app
 from app.models.produto import Loja, Preco, Produto
 from app.spiders.base import BaseSpider, ProdutoScraped
-from app.spiders.foodtosave import FoodToSaveSpider
 from app.spiders.mercadolivre import MercadoLivreSpider
 from app.spiders.shopee import ShopeeSpider
-from app.spiders.supermercados import (
-    AtacadaoSpider,
-    MaxAtacadistaSpider,
-    WalmartSpider,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -35,33 +30,36 @@ if not DATABASE_URL:
 
 engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
 async_session = async_sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False,
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
 )
 
-# Registre novas spiders aqui
+# Apenas spiders com APIs públicas confirmadas
 SPIDERS_REGISTRY: list[type[BaseSpider]] = [
-    MercadoLivreSpider,
-    ShopeeSpider,
-    AtacadaoSpider,
-    WalmartSpider,
-    MaxAtacadistaSpider,
-    FoodToSaveSpider,
+    MercadoLivreSpider,  # API pública, sem autenticação
+    ShopeeSpider,  # API interna, best-effort
 ]
 
 
-async def _garantir_loja(
-    db: AsyncSession, spider: BaseSpider,
-) -> Loja:
-    """Retorna loja existente ou cria nova. DRY."""
+def _logo_url(domain: str) -> str:
+    """Gera URL de favicon via Google."""
+    return f"https://www.google.com/s2/favicons?domain={domain}&sz=64"
+
+
+async def _garantir_loja(db: AsyncSession, spider: BaseSpider) -> Loja:
+    """Retorna loja existente ou cria nova."""
     result = await db.execute(
         select(Loja).where(Loja.nome == spider.nome_loja),
     )
     loja = result.scalar_one_or_none()
     if not loja:
+        domain = spider.url_base.replace("https://", "").replace("http://", "")
         loja = Loja(
             nome=spider.nome_loja,
             url_base=spider.url_base,
             tipo_fonte=spider.tipo_fonte,
+            icone=_logo_url(domain),
         )
         db.add(loja)
         await db.flush()
@@ -72,13 +70,12 @@ async def _persistir_produtos(
     produtos: list[ProdutoScraped],
     spider: BaseSpider,
 ) -> int:
-    """Salva produtos no banco, criando ou atualizando preços."""
+    """Salva produtos coletados no banco."""
     async with async_session() as db:
         loja = await _garantir_loja(db, spider)
         count = 0
 
         for item in produtos:
-            # Buscar produto existente ou criar
             result = await db.execute(
                 select(Produto).where(Produto.nome == item.nome),
             )
@@ -98,15 +95,16 @@ async def _persistir_produtos(
                 )
                 db.add(produto)
                 await db.flush()
+            elif item.imagem_url and not produto.imagem_url:
+                # Atualiza imagem se o produto não tinha
+                produto.imagem_url = item.imagem_url
 
-            # Registrar novo preço
             preco = Preco(
                 produto_id=produto.id,
                 loja_id=loja.id,
                 valor=Decimal(str(item.valor)),
                 valor_original=(
-                    Decimal(str(item.valor_original))
-                    if item.valor_original else None
+                    Decimal(str(item.valor_original)) if item.valor_original else None
                 ),
                 url_oferta=item.url_oferta,
                 url_redirecionamento=item.url_redirecionamento,
@@ -124,7 +122,7 @@ def scrape_loja(self, spider_name: str) -> int:
     """Executa scraping de uma loja específica."""
     spider_cls = _get_spider_by_name(spider_name)
     if spider_cls is None:
-        logger.error("Spider '%s' não encontrada no registry", spider_name)
+        logger.error("Spider '%s' não encontrada", spider_name)
         return 0
 
     async def _run() -> int:

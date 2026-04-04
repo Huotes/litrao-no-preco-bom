@@ -1,45 +1,49 @@
-"""Spider Mercado Livre — usa API pública de busca.
+"""Spider Mercado Livre — API pública de busca (única confirmada).
 
 Endpoint: GET https://api.mercadolibre.com/sites/MLB/search
+Documentação: https://developers.mercadolivre.com.br/en_us/items-and-searches
 Não requer autenticação para buscas públicas.
-Princípios: KISS (API JSON direta), DRY (herda BaseSpider).
 """
 
 import logging
-from urllib.parse import quote_plus
 
 from app.spiders.base import BaseSpider, ProdutoScraped
 
 logger = logging.getLogger(__name__)
 
-# Termos de busca para bebidas alcoólicas
 TERMOS_BUSCA = [
     "cerveja lata 350ml",
     "cerveja long neck",
-    "cerveja artesanal",
+    "cerveja artesanal 600ml",
+    "cerveja ipa",
     "vinho tinto 750ml",
-    "vinho branco",
+    "vinho branco 750ml",
     "espumante brut",
     "vodka 750ml",
     "whisky 1 litro",
-    "gin london dry",
+    "gin london dry 750ml",
     "cachaça",
-    "tequila",
+    "tequila 750ml",
     "drink pronto ice",
+    "campari",
 ]
 
 API_SEARCH = "https://api.mercadolibre.com/sites/MLB/search"
 
 
 class MercadoLivreSpider(BaseSpider):
-    """Spider para Mercado Livre via API pública REST."""
+    """Spider para Mercado Livre via API pública REST.
+
+    Única API brasileira confirmada como pública e funcional.
+    Retorna nome, preço, imagem, permalink.
+    """
 
     nome_loja = "Mercado Livre"
-    url_base = "https://mercadolivre.com.br"
+    url_base = "https://www.mercadolivre.com.br"
     tipo_fonte = "marketplace"
 
     async def scrape(self) -> list[ProdutoScraped]:
-        """Busca bebidas na API do Mercado Livre."""
+        """Busca bebidas alcoólicas na API do Mercado Livre."""
         todos: list[ProdutoScraped] = []
         vistos: set[str] = set()
 
@@ -55,23 +59,21 @@ class MercadoLivreSpider(BaseSpider):
                 logger.warning("ML: erro no termo '%s'", termo)
                 continue
 
+        logger.info("ML: %d produtos únicos coletados", len(todos))
         return todos
 
     async def _buscar_termo(self, termo: str) -> list[ProdutoScraped]:
-        """Busca um termo específico na API."""
+        """Busca um termo na API."""
         data = await self.fetch_json(API_SEARCH, params={
             "q": termo,
             "limit": "50",
             "sort": "relevance",
         })
 
-        produtos = []
-        for item in data.get("results", []):
-            produto = self._parse_item(item)
-            if produto:
-                produtos.append(produto)
-
-        return produtos
+        return [
+            p for item in data.get("results", [])
+            if (p := self._parse_item(item)) is not None
+        ]
 
     def _parse_item(self, item: dict) -> ProdutoScraped | None:
         """Converte item da API em ProdutoScraped."""
@@ -80,7 +82,6 @@ class MercadoLivreSpider(BaseSpider):
         if not nome or not preco:
             return None
 
-        # Filtra apenas bebidas alcoólicas
         tipo = self.inferir_tipo(nome)
         if tipo == "outros":
             return None
@@ -88,12 +89,12 @@ class MercadoLivreSpider(BaseSpider):
         original = item.get("original_price")
         em_promo = original is not None and original > preco
         permalink = item.get("permalink", "")
-        thumbnail = item.get("thumbnail", "")
 
-        # Melhora qualidade da imagem (I=small, O=original)
+        # Imagem: thumbnail → qualidade alta (-O ao invés de -I)
+        thumbnail = item.get("thumbnail", "")
         img_url = None
         if thumbnail:
-            img_url = thumbnail.replace("-I.jpg", "-O.jpg")
+            img_url = thumbnail.replace("-I.jpg", "-O.jpg").replace("-I.webp", "-O.webp")
 
         return ProdutoScraped(
             nome=nome,

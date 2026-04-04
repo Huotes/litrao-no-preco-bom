@@ -1,8 +1,9 @@
 import Link from "next/link";
 
-import { formatarPreco, formatarVolume, TIPO_ICONS } from "@/lib/format";
+import { formatarPreco, formatarVolume } from "@/lib/format";
 import { TipoBadge } from "@/components/TipoBadge";
 import { ProductImage } from "@/components/ProductImage";
+import { StoreIcon } from "@/components/StoreIcon";
 import type { Produto } from "@/types/produto";
 
 interface ProductCardProps {
@@ -67,14 +68,14 @@ export function ProductCard({ produto, compact = false }: ProductCardProps) {
           )}
         </div>
         {produto.loja_menor_preco && (
-          <span className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-            {produto.loja_icone && <span>{produto.loja_icone}</span>}
+          <span className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+            <StoreIcon src={produto.loja_icone} nome={produto.loja_menor_preco} size={16} />
             {produto.loja_menor_preco}
           </span>
         )}
       </div>
 
-      {/* Link de redirecionamento estilo Google */}
+      {/* URL da loja estilo Google */}
       {produto.url_oferta && (
         <div className="mt-2 pt-2 border-t border-gray-50">
           <span className="text-xs text-brand-teal/70 truncate block">

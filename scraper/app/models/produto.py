@@ -53,7 +53,7 @@ class Loja(Base):
     logo_url: Mapped[str | None] = mapped_column(String(500))
     ativa: Mapped[bool] = mapped_column(default=True)
     tipo_fonte: Mapped[str] = mapped_column(String(50), server_default="scraper")
-    icone: Mapped[str | None] = mapped_column(String(10))
+    icone: Mapped[str | None] = mapped_column(String(500))
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

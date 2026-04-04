@@ -44,7 +44,7 @@ def upgrade() -> None:
 
     # Novos campos em lojas
     op.add_column("lojas", sa.Column("tipo_fonte", sa.String(50), server_default=sa.text("'scraper'")))
-    op.add_column("lojas", sa.Column("icone", sa.String(10), nullable=True))
+    op.add_column("lojas", sa.Column("icone", sa.String(500), nullable=True))
 
     # Novo campo em precos
     op.add_column("precos", sa.Column("url_redirecionamento", sa.String(1500), nullable=True))
