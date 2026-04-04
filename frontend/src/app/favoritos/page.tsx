@@ -1,17 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ProductCard } from "@/components/ProductCard";
-import { MOCK_PRODUTOS } from "@/lib/mock-data";
-
-const INITIAL_FAVS = MOCK_PRODUTOS.filter((_, i) => [2, 3, 8, 11, 15].includes(i));
+import { buscarProdutos } from "@/lib/api";
+import type { Produto } from "@/types/produto";
 
 export default function FavoritosPage() {
-  const [favoritos] = useState(INITIAL_FAVS);
   const [tab, setTab] = useState<"favoritos" | "recentes">("favoritos");
+  const [favoritos, setFavoritos] = useState<Produto[]>([]);
+  const [recentes, setRecentes] = useState<Produto[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentes = MOCK_PRODUTOS.slice(0, 5);
+  useEffect(() => {
+    async function load() {
+      try {
+        // Busca produtos reais da API para simular favoritos e recentes
+        const [favsRes, recentesRes] = await Promise.all([
+          buscarProdutos({ pagina: 1, por_pagina: 6, em_promocao: true }),
+          buscarProdutos({ pagina: 1, por_pagina: 5, ordenar_por: "nome" }),
+        ]);
+        setFavoritos(favsRes.items);
+        setRecentes(recentesRes.items);
+      } catch {
+        // API indisponível — listas ficam vazias
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   const items = tab === "favoritos" ? favoritos : recentes;
 
@@ -43,7 +61,9 @@ export default function FavoritosPage() {
         </button>
       </div>
 
-      {items.length > 0 ? (
+      {loading ? (
+        <div className="py-8 text-center text-gray-400 text-sm">Carregando...</div>
+      ) : items.length > 0 ? (
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {items.map((p) => (
             <ProductCard key={p.id} produto={p} />

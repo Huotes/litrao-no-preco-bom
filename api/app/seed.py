@@ -1,6 +1,6 @@
 """Script para popular o banco com dados reais de lojas e produtos.
 
-Princípios: DRY, idempotente, dados realistas.
+Princípios: DRY, idempotente, dados realistas com imagens.
 """
 
 import asyncio
@@ -32,19 +32,19 @@ LOJAS = [
     },
     {
         "nome": "Atacadão",
-        "url_base": "https://atacadao.com.br",
+        "url_base": "https://www.atacadao.com.br",
         "tipo_fonte": "scraper",
         "icone": "🔵",
     },
     {
         "nome": "Walmart",
-        "url_base": "https://walmart.com.br",
+        "url_base": "https://www.walmart.com.br",
         "tipo_fonte": "scraper",
         "icone": "🔷",
     },
     {
         "nome": "Max Atacadista",
-        "url_base": "https://maxatacadista.com.br",
+        "url_base": "https://www.maxatacadista.com.br",
         "tipo_fonte": "scraper",
         "icone": "🟢",
     },
@@ -56,33 +56,36 @@ LOJAS = [
     },
     {
         "nome": "Pão de Açúcar",
-        "url_base": "https://paodeacucar.com",
+        "url_base": "https://www.paodeacucar.com",
         "tipo_fonte": "scraper",
         "icone": "🟤",
     },
     {
         "nome": "Carrefour",
-        "url_base": "https://carrefour.com.br",
+        "url_base": "https://www.carrefour.com.br",
         "tipo_fonte": "scraper",
         "icone": "🔴",
     },
     {
         "nome": "Assaí Atacadista",
-        "url_base": "https://assai.com.br",
+        "url_base": "https://www.assai.com.br",
         "tipo_fonte": "scraper",
         "icone": "🟡",
     },
     {
         "nome": "Empório da Cerveja",
-        "url_base": "https://emporiodacerveja.com.br",
+        "url_base": "https://www.emporiodacerveja.com.br",
         "tipo_fonte": "scraper",
         "icone": "🍺",
     },
 ]
 
 # ---------------------------------------------------------------------------
-# Produtos com dados completos (artesanal, palavras_chave, descrição)
+# Produtos com imagens reais (URLs públicas de CDN)
 # ---------------------------------------------------------------------------
+
+_IMG = "https://images.tcdn.com.br/img/img_prod"
+_IMG2 = "https://static.clubeextra.com.br/img/uploads/1"
 
 PRODUTOS = [
     # --- Cervejas industriais ---
@@ -92,6 +95,7 @@ PRODUTOS = [
         "volume_ml": 350, "teor": 4.7, "base": 3.49,
         "palavras_chave": "skol pilsen lata gelada barata",
         "descricao": "Cerveja Skol Pilsen, a cerveja que desce redondo.",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lzp4qqe3n5v1c9",
     },
     {
         "nome": "Brahma Duplo Malte 600ml",
@@ -99,42 +103,49 @@ PRODUTOS = [
         "volume_ml": 600, "teor": 4.7, "base": 6.99,
         "palavras_chave": "brahma duplo malte litrão garrafa",
         "descricao": "Brahma Duplo Malte, sabor encorpado e marcante.",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-ly2kxl4o3ndd84",
     },
     {
         "nome": "Heineken Long Neck 330ml",
         "tipo": "cerveja", "subtipo": "Lager", "marca": "Heineken",
         "volume_ml": 330, "teor": 5.0, "base": 5.29,
         "palavras_chave": "heineken long neck premium importada",
+        "imagem_url": "https://cf.shopee.com.br/file/sg-11134201-22110-5m5uj4s8f9jvc2",
     },
     {
         "nome": "Corona Extra 355ml",
         "tipo": "cerveja", "subtipo": "Lager", "marca": "Corona",
         "volume_ml": 355, "teor": 4.5, "base": 7.49,
         "palavras_chave": "corona extra limão mexicana",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lzp4qqe43ub1f7",
     },
     {
         "nome": "Budweiser Lata 473ml",
         "tipo": "cerveja", "subtipo": "Lager", "marca": "Budweiser",
         "volume_ml": 473, "teor": 5.0, "base": 4.29,
         "palavras_chave": "budweiser lata latão americana",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-ly6j3yqo7fkl3e",
     },
     {
         "nome": "Antarctica Original 600ml",
         "tipo": "cerveja", "subtipo": "Pilsen", "marca": "Antarctica",
         "volume_ml": 600, "teor": 5.0, "base": 5.49,
         "palavras_chave": "antarctica original litrão garrafa",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lxmdc4fp7w0td2",
     },
     {
         "nome": "Stella Artois 275ml",
         "tipo": "cerveja", "subtipo": "Lager", "marca": "Stella Artois",
         "volume_ml": 275, "teor": 5.0, "base": 4.99,
         "palavras_chave": "stella artois premium belga",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lxl80k8nbajl3e",
     },
     {
         "nome": "IPA Lagunitas 355ml",
         "tipo": "cerveja", "subtipo": "IPA", "marca": "Lagunitas",
         "volume_ml": 355, "teor": 6.2, "base": 12.90,
         "palavras_chave": "lagunitas ipa artesanal craft",
+        "imagem_url": "https://cf.shopee.com.br/file/sg-11134201-22110-8uo3d9i2f9jvd2",
     },
     # --- Cervejas artesanais ---
     {
@@ -143,6 +154,7 @@ PRODUTOS = [
         "volume_ml": 600, "teor": 5.5, "base": 18.90, "artesanal": True,
         "palavras_chave": "colorado appia trigo mel artesanal craft",
         "descricao": "Cerveja de trigo com mel de laranjeira. Artesanal brasileira.",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lzp4qqe4i4t148",
     },
     {
         "nome": "Wäls Session Citra IPA 600ml",
@@ -150,12 +162,14 @@ PRODUTOS = [
         "volume_ml": 600, "teor": 4.5, "base": 22.90, "artesanal": True,
         "palavras_chave": "wals session citra ipa artesanal mineira craft",
         "descricao": "Session IPA com lúpulo Citra. Cervejaria artesanal de MG.",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lxl80k8nw4y913",
     },
     {
         "nome": "Bodebrown Cacau IPA 330ml",
         "tipo": "cerveja", "subtipo": "IPA", "marca": "Bodebrown",
         "volume_ml": 330, "teor": 6.0, "base": 19.90, "artesanal": True,
         "palavras_chave": "bodebrown cacau ipa curitiba artesanal craft",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-m06y0ndb3fhl0b",
     },
     # --- Vinhos ---
     {
@@ -163,24 +177,28 @@ PRODUTOS = [
         "tipo": "vinho", "subtipo": "Tinto", "marca": "Casillero del Diablo",
         "volume_ml": 750, "teor": 13.5, "base": 39.90,
         "palavras_chave": "casillero diablo cabernet chileno tinto",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lxmdc4fp12o149",
     },
     {
         "nome": "Vinho Santa Helena Reservado Merlot 750ml",
         "tipo": "vinho", "subtipo": "Tinto", "marca": "Santa Helena",
         "volume_ml": 750, "teor": 13.0, "base": 29.90,
         "palavras_chave": "santa helena reservado merlot chileno",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-ly6j3yqohajl96",
     },
     {
         "nome": "Vinho Miolo Seleção Chardonnay 750ml",
         "tipo": "vinho", "subtipo": "Branco", "marca": "Miolo",
         "volume_ml": 750, "teor": 12.5, "base": 34.50,
         "palavras_chave": "miolo seleção chardonnay branco brasileiro",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lxl80k8n58hl33",
     },
     {
         "nome": "Espumante Chandon Brut 750ml",
         "tipo": "vinho", "subtipo": "Espumante", "marca": "Chandon",
         "volume_ml": 750, "teor": 12.0, "base": 69.90,
         "palavras_chave": "chandon brut espumante festa celebração",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-m06y0ndbii5l58",
     },
     # --- Destilados ---
     {
@@ -188,36 +206,42 @@ PRODUTOS = [
         "tipo": "destilado", "subtipo": "Vodka", "marca": "Absolut",
         "volume_ml": 750, "teor": 40.0, "base": 69.90,
         "palavras_chave": "absolut vodka sueca original",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lzp4qqe4xcb1da",
     },
     {
         "nome": "Jack Daniel's Tennessee 1L",
         "tipo": "destilado", "subtipo": "Whisky", "marca": "Jack Daniel's",
         "volume_ml": 1000, "teor": 40.0, "base": 159.90,
         "palavras_chave": "jack daniels whisky tennessee americano",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lzp4qqe5bvt17e",
     },
     {
         "nome": "Gin Tanqueray London Dry 750ml",
         "tipo": "destilado", "subtipo": "Gin", "marca": "Tanqueray",
         "volume_ml": 750, "teor": 43.1, "base": 99.90,
         "palavras_chave": "tanqueray gin london dry gintonico",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-ly2kxl4o7fkl3b",
     },
     {
         "nome": "Cachaça 51 965ml",
         "tipo": "destilado", "subtipo": "Cachaça", "marca": "51",
         "volume_ml": 965, "teor": 40.0, "base": 12.90,
         "palavras_chave": "51 cachaça caipirinha brasileira",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lxl80k8nkk4t07",
     },
     {
         "nome": "Tequila José Cuervo Ouro 750ml",
         "tipo": "destilado", "subtipo": "Tequila", "marca": "José Cuervo",
         "volume_ml": 750, "teor": 38.0, "base": 89.90,
         "palavras_chave": "jose cuervo tequila ouro mexicana",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-ly6j3yqo12y9fa",
     },
     {
         "nome": "Campari Bitter 998ml",
         "tipo": "destilado", "subtipo": "Bitter", "marca": "Campari",
         "volume_ml": 998, "teor": 25.0, "base": 49.90,
         "palavras_chave": "campari bitter negroni aperol drink",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-m06y0ndbxddd8f",
     },
     # --- Destilados artesanais ---
     {
@@ -226,6 +250,7 @@ PRODUTOS = [
         "volume_ml": 700, "teor": 40.0, "base": 59.90, "artesanal": True,
         "palavras_chave": "weber haus cachaça prata artesanal gaúcha",
         "descricao": "Cachaça artesanal gaúcha envelhecida em dornas de inox.",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lzp4qqe5qn91f9",
     },
     # --- Drinks prontos ---
     {
@@ -233,12 +258,14 @@ PRODUTOS = [
         "tipo": "drink_pronto", "subtipo": "Ice", "marca": "Smirnoff",
         "volume_ml": 275, "teor": 5.0, "base": 5.99,
         "palavras_chave": "smirnoff ice limão vodka pronto",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-ly2kxl4om0498d",
     },
     {
         "nome": "Beats GT 313ml Lata",
         "tipo": "drink_pronto", "subtipo": "Misto", "marca": "Beats",
         "volume_ml": 313, "teor": 7.9, "base": 4.49,
         "palavras_chave": "beats gt gin tonica lata pronto",
+        "imagem_url": "https://cf.shopee.com.br/file/br-11134207-7r98o-lxmdc4fpmp8997",
     },
     # --- Food To Save (lootbox surpresa) ---
     {
@@ -250,13 +277,9 @@ PRODUTOS = [
             "Sacola surpresa com bebidas alcoólicas próximas do vencimento. "
             "Conteúdo variado: cervejas, vinhos ou destilados. Economia de até 70%."
         ),
+        "imagem_url": "https://foodtosave.com.br/images/sacola-surpresa.png",
     },
 ]
-
-
-def _url_redir(loja_url: str, oferta_url: str) -> str:
-    """Gera URL de redirecionamento com rastreamento."""
-    return f"/redir?to={oferta_url}&ref=litrao"
 
 
 async def seed() -> None:
@@ -280,6 +303,9 @@ async def seed() -> None:
             lojas_db.append(loja)
         await db.flush()
 
+        # Mapa loja.nome -> loja para gerar URLs corretas
+        loja_map = {l.nome: l for l in lojas_db}
+
         # Criar produtos e preços
         for item in PRODUTOS:
             produto = Produto(
@@ -292,6 +318,7 @@ async def seed() -> None:
                     Decimal(str(item["teor"])) if item.get("teor") else None
                 ),
                 descricao=item.get("descricao"),
+                imagem_url=item.get("imagem_url"),
                 artesanal=item.get("artesanal", False),
                 palavras_chave=item.get("palavras_chave"),
             )
@@ -309,7 +336,10 @@ async def seed() -> None:
                 em_promo = i == 0 and random.random() > 0.4
                 valor_orig = round(valor * 1.35, 2) if em_promo else None
 
-                url_oferta = f"{loja.url_base}/produto/{produto.id}"
+                # URL direta para a loja (sem /redir)
+                slug = produto.nome.lower().replace(" ", "-").replace("'", "")
+                url_oferta = f"{loja.url_base}/bebidas/{slug}"
+
                 preco = Preco(
                     produto_id=produto.id,
                     loja_id=loja.id,
@@ -318,7 +348,7 @@ async def seed() -> None:
                         Decimal(str(valor_orig)) if valor_orig else None
                     ),
                     url_oferta=url_oferta,
-                    url_redirecionamento=_url_redir(loja.url_base, url_oferta),
+                    url_redirecionamento=url_oferta,
                     em_promocao=em_promo,
                 )
                 db.add(preco)

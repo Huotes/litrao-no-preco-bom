@@ -1,7 +1,8 @@
 """Spider Food To Save — sacolas surpresa de bebidas (lootbox).
 
 Food To Save oferece sacolas surpresa com bebidas próximas do
-vencimento, com grandes descontos. Princípio: KISS.
+vencimento, com grandes descontos.
+Princípios: KISS (tentativa de API + fallback gracioso).
 """
 
 import logging
@@ -10,7 +11,11 @@ from app.spiders.base import BaseSpider, ProdutoScraped
 
 logger = logging.getLogger(__name__)
 
-API_BASE = "https://api.foodtosave.com.br/v1"
+# URLs possíveis da API Food To Save
+API_URLS = [
+    "https://api.foodtosave.com.br/v1/bags",
+    "https://api.foodtosave.com.br/v2/bags",
+]
 
 
 class FoodToSaveSpider(BaseSpider):
@@ -22,22 +27,21 @@ class FoodToSaveSpider(BaseSpider):
 
     async def scrape(self) -> list[ProdutoScraped]:
         """Busca sacolas surpresa com bebidas."""
-        try:
-            data = await self.fetch_json(
-                f"{API_BASE}/bags",
-                params={"category": "bebidas", "limit": 50},
-            )
-        except Exception:
-            logger.warning("Erro ao acessar API Food To Save")
-            return []
+        for api_url in API_URLS:
+            try:
+                data = await self.fetch_json(
+                    api_url,
+                    params={"category": "bebidas", "limit": "50"},
+                )
+                bags = data.get("bags", data.get("results", data.get("data", [])))
+                if bags:
+                    return [p for p in (self._parse_bag(b) for b in bags) if p]
+            except Exception:
+                logger.debug("FoodToSave: falha em %s", api_url)
+                continue
 
-        produtos = []
-        for bag in data.get("bags", data.get("results", [])):
-            produto = self._parse_bag(bag)
-            if produto:
-                produtos.append(produto)
-
-        return produtos
+        logger.info("FoodToSave: nenhuma API respondeu, retornando vazio")
+        return []
 
     def _parse_bag(self, bag: dict) -> ProdutoScraped | None:
         """Converte sacola surpresa em ProdutoScraped."""

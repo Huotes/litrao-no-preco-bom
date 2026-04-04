@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { obterProduto } from "@/lib/api";
-import { formatarPreco, formatarVolume, TIPO_ICONS } from "@/lib/format";
+import { formatarPreco, formatarVolume } from "@/lib/format";
 import { TipoBadge } from "@/components/TipoBadge";
+import { ProductImage } from "@/components/ProductImage";
 import type { ProdutoDetalhe } from "@/types/produto";
 
 export default function ProdutoPage() {
@@ -45,7 +46,6 @@ export default function ProdutoPage() {
     );
   }
 
-  const icon = TIPO_ICONS[produto.tipo] ?? "🍾";
   const precos = produto.precos ?? [];
 
   return (
@@ -68,8 +68,8 @@ export default function ProdutoPage() {
 
       {/* Product hero */}
       <div className="card p-6 text-center">
-        <div className="w-24 h-24 mx-auto rounded-2xl bg-brand-teal/5 flex items-center justify-center text-5xl mb-4">
-          {icon}
+        <div className="mx-auto mb-4 flex items-center justify-center">
+          <ProductImage src={produto.imagem_url} alt={produto.nome} tipo={produto.tipo} size="lg" />
         </div>
         <h1 className="text-xl font-bold text-gray-800">{produto.nome}</h1>
         <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">

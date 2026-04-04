@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { TIPO_ICONS } from "@/lib/format";
 import type { TipoBebida } from "@/types/produto";
 
@@ -14,9 +17,10 @@ const SIZE_CLASSES = {
 } as const;
 
 export function ProductImage({ src, alt, tipo, size = "sm" }: ProductImageProps) {
+  const [hasError, setHasError] = useState(false);
   const icon = tipo ? TIPO_ICONS[tipo] : "🍾";
 
-  if (!src) {
+  if (!src || hasError) {
     return (
       <div className={`${SIZE_CLASSES[size]} flex-shrink-0 rounded-xl bg-brand-teal/5 flex items-center justify-center`}>
         {icon}
@@ -26,7 +30,13 @@ export function ProductImage({ src, alt, tipo, size = "sm" }: ProductImageProps)
 
   return (
     <div className={`${SIZE_CLASSES[size]} flex-shrink-0 overflow-hidden rounded-xl bg-gray-50 flex items-center justify-center`}>
-      <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
+      <img
+        src={src}
+        alt={alt}
+        className="max-h-full max-w-full object-contain"
+        onError={() => setHasError(true)}
+        loading="lazy"
+      />
     </div>
   );
 }

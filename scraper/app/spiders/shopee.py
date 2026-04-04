@@ -1,6 +1,7 @@
 """Spider Shopee — scraping via API interna de busca.
 
-Shopee expõe uma API JSON interna para busca de produtos.
+A API da Shopee é protegida por anti-bot. Este spider faz tentativas
+com fallback gracioso: se bloqueado, retorna lista vazia sem erro.
 Princípios: KISS (API JSON), DRY (herda BaseSpider).
 """
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 TERMOS_BUSCA = [
     "cerveja",
-    "vinho",
+    "vinho tinto",
     "vodka",
     "whisky",
     "gin",
@@ -26,7 +27,7 @@ API_SEARCH = "https://shopee.com.br/api/v4/search/search_items"
 
 
 class ShopeeSpider(BaseSpider):
-    """Spider para Shopee via scraping de API interna."""
+    """Spider para Shopee via API interna de busca."""
 
     nome_loja = "Shopee"
     url_base = "https://shopee.com.br"
@@ -37,6 +38,7 @@ class ShopeeSpider(BaseSpider):
         self.client.headers.update({
             "Referer": "https://shopee.com.br/",
             "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json",
         })
 
     async def scrape(self) -> list[ProdutoScraped]:
@@ -45,27 +47,28 @@ class ShopeeSpider(BaseSpider):
         vistos: set[str] = set()
 
         for termo in TERMOS_BUSCA:
-            produtos = await self._buscar_termo(termo)
-            for p in produtos:
-                if p.url_oferta not in vistos:
-                    vistos.add(p.url_oferta)
-                    todos.append(p)
+            try:
+                produtos = await self._buscar_termo(termo)
+                for p in produtos:
+                    chave = p.nome.lower().strip()
+                    if chave not in vistos:
+                        vistos.add(chave)
+                        todos.append(p)
+            except Exception:
+                logger.debug("Shopee: bloqueado ou erro no termo '%s'", termo)
+                continue
 
         return todos
 
     async def _buscar_termo(self, termo: str) -> list[ProdutoScraped]:
         """Busca um termo na API da Shopee."""
-        try:
-            data = await self.fetch_json(API_SEARCH, params={
-                "keyword": termo,
-                "limit": 50,
-                "newest": 0,
-                "order": "relevancy",
-                "by": "relevancy",
-            })
-        except Exception:
-            logger.warning("Erro ao buscar '%s' na Shopee", termo)
-            return []
+        data = await self.fetch_json(API_SEARCH, params={
+            "keyword": termo,
+            "limit": "50",
+            "newest": "0",
+            "order": "relevancy",
+            "by": "relevancy",
+        })
 
         items = data.get("items") or []
         produtos = []
@@ -81,14 +84,19 @@ class ShopeeSpider(BaseSpider):
         """Converte item da API Shopee em ProdutoScraped."""
         nome = item.get("name", "")
         price_raw = item.get("price", 0)
-        # Shopee retorna preço em centavos (x100000)
-        preco = price_raw / 100000 if price_raw > 1000 else price_raw
+
+        # Shopee retorna preço em unidade * 100000
+        preco = price_raw / 100000 if price_raw > 1000 else float(price_raw)
 
         if not nome or preco <= 0:
             return None
 
+        tipo = self.inferir_tipo(nome)
+        if tipo == "outros":
+            return None
+
         original_raw = item.get("price_before_discount", 0)
-        original = original_raw / 100000 if original_raw > 1000 else original_raw
+        original = original_raw / 100000 if original_raw > 1000 else float(original_raw)
         em_promo = original > preco if original else False
 
         shop_id = item.get("shopid", "")
@@ -97,8 +105,6 @@ class ShopeeSpider(BaseSpider):
 
         image = item.get("image", "")
         img_url = f"https://cf.shopee.com.br/file/{image}" if image else None
-
-        tipo = self.inferir_tipo(nome)
 
         return ProdutoScraped(
             nome=nome,
