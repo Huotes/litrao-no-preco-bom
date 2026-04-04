@@ -1,15 +1,31 @@
-"""Tasks Celery para orquestração de scraping."""
+"""Tasks Celery para orquestração de scraping.
+
+Princípios: DRY (persistência genérica), KISS (registry simples).
+"""
 
 import asyncio
 import logging
 import os
+from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.celery_app import celery_app
 from app.models.produto import Loja, Preco, Produto
 from app.spiders.base import BaseSpider, ProdutoScraped
+from app.spiders.foodtosave import FoodToSaveSpider
+from app.spiders.mercadolivre import MercadoLivreSpider
+from app.spiders.shopee import ShopeeSpider
+from app.spiders.supermercados import (
+    AtacadaoSpider,
+    MaxAtacadistaSpider,
+    WalmartSpider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,30 +34,53 @@ if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL não configurada")
 
 engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async_session = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False,
+)
 
 # Registre novas spiders aqui
 SPIDERS_REGISTRY: list[type[BaseSpider]] = [
-    # ExemploSpider,  # Descomentar quando implementar
+    MercadoLivreSpider,
+    ShopeeSpider,
+    AtacadaoSpider,
+    WalmartSpider,
+    MaxAtacadistaSpider,
+    FoodToSaveSpider,
 ]
 
 
-async def _persistir_produtos(produtos: list[ProdutoScraped], loja_nome: str) -> int:
+async def _garantir_loja(
+    db: AsyncSession, spider: BaseSpider,
+) -> Loja:
+    """Retorna loja existente ou cria nova. DRY."""
+    result = await db.execute(
+        select(Loja).where(Loja.nome == spider.nome_loja),
+    )
+    loja = result.scalar_one_or_none()
+    if not loja:
+        loja = Loja(
+            nome=spider.nome_loja,
+            url_base=spider.url_base,
+            tipo_fonte=spider.tipo_fonte,
+        )
+        db.add(loja)
+        await db.flush()
+    return loja
+
+
+async def _persistir_produtos(
+    produtos: list[ProdutoScraped],
+    spider: BaseSpider,
+) -> int:
     """Salva produtos no banco, criando ou atualizando preços."""
     async with async_session() as db:
-        # Garantir que a loja existe
-        result = await db.execute(select(Loja).where(Loja.nome == loja_nome))
-        loja = result.scalar_one_or_none()
-        if not loja:
-            loja = Loja(nome=loja_nome, url_base=f"https://{loja_nome.lower().replace(' ', '')}.com.br")
-            db.add(loja)
-            await db.flush()
-
+        loja = await _garantir_loja(db, spider)
         count = 0
+
         for item in produtos:
             # Buscar produto existente ou criar
             result = await db.execute(
-                select(Produto).where(Produto.nome == item.nome)
+                select(Produto).where(Produto.nome == item.nome),
             )
             produto = result.scalar_one_or_none()
 
@@ -49,9 +88,13 @@ async def _persistir_produtos(produtos: list[ProdutoScraped], loja_nome: str) ->
                 produto = Produto(
                     nome=item.nome,
                     tipo=item.tipo,
+                    subtipo=item.subtipo,
                     marca=item.marca,
                     volume_ml=item.volume_ml,
                     imagem_url=item.imagem_url,
+                    artesanal=item.artesanal,
+                    palavras_chave=item.palavras_chave,
+                    descricao=item.descricao,
                 )
                 db.add(produto)
                 await db.flush()
@@ -60,9 +103,13 @@ async def _persistir_produtos(produtos: list[ProdutoScraped], loja_nome: str) ->
             preco = Preco(
                 produto_id=produto.id,
                 loja_id=loja.id,
-                valor=item.valor,
-                valor_original=item.valor_original,
+                valor=Decimal(str(item.valor)),
+                valor_original=(
+                    Decimal(str(item.valor_original))
+                    if item.valor_original else None
+                ),
                 url_oferta=item.url_oferta,
+                url_redirecionamento=item.url_redirecionamento,
                 em_promocao=item.em_promocao,
             )
             db.add(preco)
@@ -73,19 +120,19 @@ async def _persistir_produtos(produtos: list[ProdutoScraped], loja_nome: str) ->
 
 
 @celery_app.task(bind=True, max_retries=3)
-def scrape_loja(self, spider_name: str):
+def scrape_loja(self, spider_name: str) -> int:
     """Executa scraping de uma loja específica."""
     spider_cls = _get_spider_by_name(spider_name)
     if spider_cls is None:
         logger.error("Spider '%s' não encontrada no registry", spider_name)
-        return
+        return 0
 
-    async def _run():
+    async def _run() -> int:
         async with spider_cls() as spider:
             produtos = await spider.executar()
             if not produtos:
                 return 0
-            return await _persistir_produtos(produtos, spider.nome_loja)
+            return await _persistir_produtos(produtos, spider)
 
     try:
         count = asyncio.run(_run())
@@ -97,7 +144,7 @@ def scrape_loja(self, spider_name: str):
 
 
 @celery_app.task
-def scrape_todas_lojas():
+def scrape_todas_lojas() -> None:
     """Dispara scraping de todas as lojas registradas."""
     for spider_cls in SPIDERS_REGISTRY:
         scrape_loja.delay(spider_cls.nome_loja)

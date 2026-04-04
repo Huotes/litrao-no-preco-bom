@@ -41,9 +41,16 @@ export function ProductCard({ produto, compact = false }: ProductCardProps) {
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 leading-snug">
-            {produto.nome}
-          </h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 leading-snug">
+              {produto.nome}
+            </h3>
+            {produto.artesanal && (
+              <span className="flex-shrink-0 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                Artesanal
+              </span>
+            )}
+          </div>
           <div className="mt-1 flex items-center gap-2">
             <TipoBadge tipo={produto.tipo} />
             {produto.volume_ml && (
@@ -65,11 +72,21 @@ export function ProductCard({ produto, compact = false }: ProductCardProps) {
           )}
         </div>
         {produto.loja_menor_preco && (
-          <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+          <span className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+            {produto.loja_icone && <span>{produto.loja_icone}</span>}
             {produto.loja_menor_preco}
           </span>
         )}
       </div>
+
+      {/* Link de redirecionamento estilo Google */}
+      {produto.url_oferta && (
+        <div className="mt-2 pt-2 border-t border-gray-50">
+          <span className="text-xs text-brand-teal/70 truncate block">
+            {produto.url_oferta.replace(/^https?:\/\//, "").split("/")[0]}
+          </span>
+        </div>
+      )}
     </Link>
   );
 }

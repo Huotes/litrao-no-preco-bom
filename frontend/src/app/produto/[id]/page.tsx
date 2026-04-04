@@ -74,19 +74,52 @@ export default function ProdutoPage() {
         <h1 className="text-xl font-bold text-gray-800">{produto.nome}</h1>
         <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
           <TipoBadge tipo={produto.tipo} />
+          {produto.artesanal && (
+            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+              Artesanal
+            </span>
+          )}
           {produto.marca && <span className="text-xs text-gray-400">{produto.marca}</span>}
           {produto.volume_ml && <span className="text-xs text-gray-400">{formatarVolume(produto.volume_ml)}</span>}
           {produto.teor_alcoolico && <span className="text-xs text-gray-400">{produto.teor_alcoolico}% vol</span>}
         </div>
+
+        {produto.descricao && (
+          <p className="mt-3 text-sm text-gray-500 leading-relaxed">{produto.descricao}</p>
+        )}
+
         {produto.menor_preco && (
           <div className="mt-4">
             <p className="text-xs text-gray-400">melhor preço</p>
             <p className="text-3xl font-bold text-brand-teal">{formatarPreco(produto.menor_preco)}</p>
+            {produto.loja_menor_preco && (
+              <p className="text-xs text-gray-400 mt-1 flex items-center justify-center gap-1">
+                {produto.loja_icone && <span>{produto.loja_icone}</span>}
+                {produto.loja_menor_preco}
+              </p>
+            )}
           </div>
+        )}
+
+        {/* Botão de redirecionamento principal */}
+        {produto.url_redirecionamento && (
+          <a
+            href={produto.url_redirecionamento}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 btn-primary inline-flex items-center gap-2 text-sm"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            Ir para a oferta
+          </a>
         )}
       </div>
 
-      {/* Prices */}
+      {/* Prices list — estilo Google Shopping */}
       <section>
         <h2 className="section-title mb-3">Preços encontrados ({precos.length})</h2>
         {precos.length === 0 ? (
@@ -94,22 +127,39 @@ export default function ProdutoPage() {
         ) : (
           <div className="space-y-2">
             {precos.map((preco, idx) => (
-              <div
+              <a
                 key={preco.id}
-                className={`card p-4 flex items-center justify-between ${idx === 0 ? "ring-2 ring-brand-teal/20" : ""}`}
+                href={preco.url_redirecionamento ?? preco.url_oferta}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`card p-4 flex items-center justify-between hover:shadow-md transition-shadow ${idx === 0 ? "ring-2 ring-brand-teal/20" : ""}`}
               >
-                <div>
-                  <span className="text-sm font-medium text-gray-800">{preco.loja.nome}</span>
-                  {preco.em_promocao && (
-                    <span className="ml-2 inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-green/10 text-brand-green-dark uppercase">
-                      Promoção
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {preco.loja.icone && (
+                      <span className="text-lg">{preco.loja.icone}</span>
+                    )}
+                    <span className="text-sm font-medium text-gray-800">
+                      {preco.loja.nome}
                     </span>
-                  )}
-                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {preco.em_promocao && (
+                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-green/10 text-brand-green-dark uppercase">
+                        Promoção
+                      </span>
+                    )}
+                    {idx === 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-teal/10 text-brand-teal uppercase">
+                        Menor preço
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                    {preco.url_oferta.replace(/^https?:\/\//, "").split("/")[0]}
+                    {" · "}
                     Atualizado em {new Date(preco.coletado_em).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0 ml-3">
                   <span className={`text-lg font-bold ${idx === 0 ? "text-brand-teal" : "text-gray-700"}`}>
                     {formatarPreco(preco.valor)}
                   </span>
@@ -117,7 +167,12 @@ export default function ProdutoPage() {
                     <p className="text-xs text-gray-400 line-through">{formatarPreco(preco.valor_original)}</p>
                   )}
                 </div>
-              </div>
+                <svg className="ml-2 flex-shrink-0 text-gray-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
             ))}
           </div>
         )}

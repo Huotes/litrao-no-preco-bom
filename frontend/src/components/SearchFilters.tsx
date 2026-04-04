@@ -74,9 +74,15 @@ export function SearchFilters({ params, onChange }: SearchFiltersProps) {
         />
         <button
           onClick={() => update({ em_promocao: params.em_promocao ? undefined : true })}
-          className={`chip whitespace-nowrap ml-auto ${params.em_promocao ? "bg-brand-orange text-white" : "chip-inactive"}`}
+          className={`chip whitespace-nowrap ${params.em_promocao ? "bg-brand-orange text-white" : "chip-inactive"}`}
         >
           🔥 Promoções
+        </button>
+        <button
+          onClick={() => update({ artesanal: params.artesanal ? undefined : true })}
+          className={`chip whitespace-nowrap ${params.artesanal ? "bg-amber-500 text-white" : "chip-inactive"}`}
+        >
+          🍻 Artesanal
         </button>
       </div>
     </div>
