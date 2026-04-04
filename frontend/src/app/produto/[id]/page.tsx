@@ -4,136 +4,115 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-import { obterProduto } from "@/lib/api";
-import { formatarPreco, formatarVolume, TIPO_LABELS } from "@/lib/format";
-import { ProductImage } from "@/components/ProductImage";
+import { formatarPreco, formatarVolume, TIPO_ICONS, TIPO_LABELS } from "@/lib/format";
 import { TipoBadge } from "@/components/TipoBadge";
-import type { ProdutoDetalhe } from "@/types/produto";
+import { MOCK_PRODUTOS } from "@/lib/mock-data";
+import type { Produto } from "@/types/produto";
 
-function isValidUrl(url: string): boolean {
-  return url.startsWith("https://") || url.startsWith("http://");
+// Mock prices for detail view
+function mockPrecos(produto: Produto) {
+  const lojas = ["Pão de Açúcar", "Carrefour", "Extra", "Assaí", "Atacadão"];
+  const base = produto.menor_preco ?? 10;
+  return lojas.slice(0, 3 + Math.floor(Math.random() * 2)).map((loja, i) => ({
+    id: i + 1,
+    valor: +(base + i * (base * 0.08)).toFixed(2),
+    valor_original: i === 0 ? +(base * 1.3).toFixed(2) : null,
+    url_oferta: "#",
+    em_promocao: i === 0,
+    coletado_em: new Date().toISOString(),
+    loja: { id: i + 1, nome: loja, url_base: "", logo_url: null },
+  }));
 }
 
 export default function ProdutoPage() {
   const { id } = useParams<{ id: string }>();
-  const [produto, setProduto] = useState<ProdutoDetalhe | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isFav, setIsFav] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
+  const numId = Number(id);
+  const produto = MOCK_PRODUTOS.find((p) => p.id === numId);
 
-    const numId = Number(id);
-    if (Number.isNaN(numId) || numId <= 0) {
-      setError("ID inválido");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    obterProduto(numId)
-      .then(setProduto)
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro"))
-      .finally(() => setLoading(false));
-  }, [id]);
-
-  if (loading) {
-    return <div className="py-12 text-center text-gray-400">Carregando...</div>;
-  }
-
-  if (error || !produto) {
+  if (!produto) {
     return (
-      <div className="py-12 text-center text-red-500">
-        {error ?? "Produto não encontrado"}
+      <div className="py-16 text-center">
+        <p className="text-4xl mb-3">😕</p>
+        <p className="text-gray-500">Produto não encontrado</p>
+        <Link href="/" className="btn-primary inline-block mt-4 text-sm">Voltar ao início</Link>
       </div>
     );
   }
 
+  const precos = mockPrecos(produto);
+  const icon = TIPO_ICONS[produto.tipo] ?? "🍾";
+
   return (
-    <div className="space-y-6">
-      <Link href="/" className="text-sm text-amber-600 hover:underline">
-        &larr; Voltar à busca
-      </Link>
-
-      <div className="flex flex-col gap-6 sm:flex-row">
-        <ProductImage src={produto.imagem_url} alt={produto.nome} size="lg" />
-
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {produto.nome}
-          </h1>
-
-          <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500 dark:text-gray-400">
-            <TipoBadge tipo={produto.tipo} />
-            {produto.marca && <span>Marca: {produto.marca}</span>}
-            {produto.volume_ml && <span>{formatarVolume(produto.volume_ml)}</span>}
-            {produto.teor_alcoolico && <span>{produto.teor_alcoolico}% vol</span>}
-          </div>
-
-          {produto.descricao && (
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-              {produto.descricao}
-            </p>
-          )}
-        </div>
+    <div className="space-y-5 pt-4">
+      {/* Back + fav */}
+      <div className="flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-1 text-sm text-brand-teal hover:underline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+          Voltar
+        </Link>
+        <button
+          onClick={() => setIsFav(!isFav)}
+          className="w-10 h-10 rounded-full bg-white shadow-card flex items-center justify-center transition-transform active:scale-90"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill={isFav ? "#FF6B6B" : "none"} stroke={isFav ? "#FF6B6B" : "#ccc"} strokeWidth="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </button>
       </div>
 
-      <section>
-        <h2 className="mb-3 text-lg font-semibold text-gray-800 dark:text-gray-200">
-          Preços encontrados ({produto.precos.length})
-        </h2>
-
-        {produto.precos.length === 0 ? (
-          <p className="text-sm text-gray-400">Nenhum preço disponível no momento.</p>
-        ) : (
-          <div className="space-y-2">
-            {produto.precos.map((preco, idx) => {
-              const linkProps = isValidUrl(preco.url_oferta)
-                ? { href: preco.url_oferta, target: "_blank" as const, rel: "noopener noreferrer" }
-                : { href: "#" };
-
-              return (
-                <a
-                  key={preco.id}
-                  {...linkProps}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/50"
-                >
-                  <div>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">
-                      {preco.loja.nome}
-                    </span>
-                    {preco.em_promocao && (
-                      <span className="ml-2 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
-                        Promoção
-                      </span>
-                    )}
-                    <div className="mt-1 text-xs text-gray-400">
-                      Coletado em{" "}
-                      {new Date(preco.coletado_em).toLocaleDateString("pt-BR")}
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <span
-                      className={`text-lg font-bold ${
-                        idx === 0
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {formatarPreco(preco.valor)}
-                    </span>
-                    {preco.valor_original && preco.valor_original > preco.valor && (
-                      <div className="text-xs text-gray-400 line-through">
-                        {formatarPreco(preco.valor_original)}
-                      </div>
-                    )}
-                  </div>
-                </a>
-              );
-            })}
+      {/* Product hero */}
+      <div className="card p-6 text-center">
+        <div className="w-24 h-24 mx-auto rounded-2xl bg-brand-teal/5 flex items-center justify-center text-5xl mb-4">
+          {icon}
+        </div>
+        <h1 className="text-xl font-bold text-gray-800">{produto.nome}</h1>
+        <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+          <TipoBadge tipo={produto.tipo} />
+          {produto.marca && <span className="text-xs text-gray-400">{produto.marca}</span>}
+          {produto.volume_ml && <span className="text-xs text-gray-400">{formatarVolume(produto.volume_ml)}</span>}
+          {produto.teor_alcoolico && <span className="text-xs text-gray-400">{produto.teor_alcoolico}% vol</span>}
+        </div>
+        {produto.menor_preco && (
+          <div className="mt-4">
+            <p className="text-xs text-gray-400">melhor preço</p>
+            <p className="text-3xl font-bold text-brand-teal">{formatarPreco(produto.menor_preco)}</p>
           </div>
         )}
+      </div>
+
+      {/* Prices */}
+      <section>
+        <h2 className="section-title mb-3">Preços encontrados ({precos.length})</h2>
+        <div className="space-y-2">
+          {precos.map((preco, idx) => (
+            <div
+              key={preco.id}
+              className={`card p-4 flex items-center justify-between ${idx === 0 ? "ring-2 ring-brand-teal/20" : ""}`}
+            >
+              <div>
+                <span className="text-sm font-medium text-gray-800">{preco.loja.nome}</span>
+                {preco.em_promocao && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-green/10 text-brand-green-dark uppercase">
+                    Promoção
+                  </span>
+                )}
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Atualizado em {new Date(preco.coletado_em).toLocaleDateString("pt-BR")}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className={`text-lg font-bold ${idx === 0 ? "text-brand-teal" : "text-gray-700"}`}>
+                  {formatarPreco(preco.valor)}
+                </span>
+                {preco.valor_original && preco.valor_original > preco.valor && (
+                  <p className="text-xs text-gray-400 line-through">{formatarPreco(preco.valor_original)}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
     </div>
   );

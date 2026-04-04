@@ -1,3 +1,91 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --brand-teal: #008080;
+    --brand-green: #32CD32;
+    --brand-orange: #FF8C00;
+    --brand-gold: #FFD700;
+    --bg-primary: #f8fafa;
+    --bg-card: #ffffff;
+    --text-primary: #1a2e2e;
+    --text-secondary: #5a7272;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #b0c4c4;
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-teal text-white font-semibold px-5 py-2.5 rounded-xl
+           hover:bg-brand-teal-dark active:scale-[0.98] transition-all duration-150;
+  }
+  .btn-secondary {
+    @apply bg-brand-green text-white font-semibold px-5 py-2.5 rounded-xl
+           hover:bg-brand-green-dark active:scale-[0.98] transition-all duration-150;
+  }
+  .btn-outline {
+    @apply border-2 border-brand-teal text-brand-teal font-semibold px-5 py-2.5 rounded-xl
+           hover:bg-brand-teal hover:text-white active:scale-[0.98] transition-all duration-150;
+  }
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-gray-100
+           hover:shadow-card-hover transition-shadow duration-200;
+  }
+  .chip {
+    @apply inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium
+           transition-all duration-150 cursor-pointer select-none;
+  }
+  .chip-active {
+    @apply bg-brand-teal text-white;
+  }
+  .chip-inactive {
+    @apply bg-gray-100 text-gray-600 hover:bg-gray-200;
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm
+           placeholder-gray-400 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20
+           outline-none transition-all duration-150;
+  }
+  .section-title {
+    @apply text-lg font-bold text-gray-800;
+  }
+}
+
+@layer utilities {
+  .gradient-teal {
+    background: linear-gradient(135deg, #008080, #33a3a3);
+  }
+  .gradient-hero {
+    background: linear-gradient(135deg, #008080 0%, #006666 50%, #004d4d 100%);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, #008080, #32CD32);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

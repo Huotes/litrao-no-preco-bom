@@ -1,6 +1,6 @@
 "use client";
 
-import { TIPO_LABELS } from "@/lib/format";
+import { TIPO_LABELS, TIPO_ICONS } from "@/lib/format";
 import type { BuscaParams, TipoBebida } from "@/types/produto";
 
 interface SearchFiltersProps {
@@ -16,23 +16,26 @@ export function SearchFilters({ params, onChange }: SearchFiltersProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-      <input
-        type="text"
-        placeholder="Buscar bebida..."
-        value={params.q ?? ""}
-        onChange={(e) => update({ q: e.target.value || undefined })}
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
-      />
+    <div className="space-y-3">
+      {/* Search input */}
+      <div className="relative">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
+        </svg>
+        <input
+          type="text"
+          placeholder="Buscar bebida, marca..."
+          value={params.q ?? ""}
+          onChange={(e) => update({ q: e.target.value || undefined })}
+          className="input-field pl-10"
+        />
+      </div>
 
-      <div className="flex flex-wrap gap-2">
+      {/* Type chips */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         <button
           onClick={() => update({ tipo: undefined })}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            !params.tipo
-              ? "bg-amber-500 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-          }`}
+          className={`chip whitespace-nowrap ${!params.tipo ? "chip-active" : "chip-inactive"}`}
         >
           Todos
         </button>
@@ -40,52 +43,41 @@ export function SearchFilters({ params, onChange }: SearchFiltersProps) {
           <button
             key={tipo}
             onClick={() => update({ tipo: params.tipo === tipo ? undefined : tipo })}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              params.tipo === tipo
-                ? "bg-amber-500 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-            }`}
+            className={`chip whitespace-nowrap ${params.tipo === tipo ? "chip-active" : "chip-inactive"}`}
           >
+            <span className="mr-1">{TIPO_ICONS[tipo]}</span>
             {TIPO_LABELS[tipo]}
           </button>
         ))}
       </div>
 
-      <div className="flex gap-2">
+      {/* Price + Promo row */}
+      <div className="flex gap-2 items-center">
         <input
           type="number"
-          placeholder="Preço mín"
+          placeholder="Mín R$"
           value={params.preco_min ?? ""}
-          onChange={(e) =>
-            update({ preco_min: e.target.value ? Number(e.target.value) : undefined })
-          }
-          className="w-28 rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+          onChange={(e) => update({ preco_min: e.target.value ? Number(e.target.value) : undefined })}
+          className="input-field w-24 text-center"
           min={0}
-          step={0.5}
+          step={1}
         />
+        <span className="text-gray-300">—</span>
         <input
           type="number"
-          placeholder="Preço máx"
+          placeholder="Máx R$"
           value={params.preco_max ?? ""}
-          onChange={(e) =>
-            update({ preco_max: e.target.value ? Number(e.target.value) : undefined })
-          }
-          className="w-28 rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+          onChange={(e) => update({ preco_max: e.target.value ? Number(e.target.value) : undefined })}
+          className="input-field w-24 text-center"
           min={0}
-          step={0.5}
+          step={1}
         />
-
-        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <input
-            type="checkbox"
-            checked={params.em_promocao ?? false}
-            onChange={(e) =>
-              update({ em_promocao: e.target.checked || undefined })
-            }
-            className="rounded"
-          />
-          Promoções
-        </label>
+        <button
+          onClick={() => update({ em_promocao: params.em_promocao ? undefined : true })}
+          className={`chip whitespace-nowrap ml-auto ${params.em_promocao ? "bg-brand-orange text-white" : "chip-inactive"}`}
+        >
+          🔥 Promoções
+        </button>
       </div>
     </div>
   );

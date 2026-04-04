@@ -20,7 +20,7 @@ services:
     depends_on:
       - api
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"const h=require('http');h.get('http://127.0.0.1:3000',r=>{process.exit(r.statusCode >= 200 && r.statusCode < 400 ? 0 : 1)}).on('error',()=>process.exit(1))\""]
       interval: 10s
       retries: 5
       start_period: 30s

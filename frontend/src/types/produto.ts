@@ -59,3 +59,9 @@ export interface BuscaParams {
   pagina?: number;
   por_pagina?: number;
 }
+
+export interface Regiao {
+  estado: string;
+  sigla: string;
+  cidades: string[];
+}

@@ -20,3 +20,12 @@ export const TIPO_LABELS: Record<TipoBebida, string> = {
   drink_pronto: "Drink Pronto",
   outros: "Outros",
 };
+
+export const TIPO_ICONS: Record<TipoBebida, string> = {
+  cerveja: "🍺",
+  vinho: "🍷",
+  destilado: "🥃",
+  refrigerante_alcoolico: "🍹",
+  drink_pronto: "🧉",
+  outros: "🍾",
+};
